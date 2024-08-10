@@ -340,9 +340,10 @@ tar -zxvf v2ray-plugin-linux-amd64-v1.3.2.tar.gz
     "plugin":"v2ray-plugin_linux_amd64",
     "plugin_opts":"server"
 }
+```
+
 plugin`: `这里填写的是解压出来的v2ray-plugin_linux_amd64
 plugin_opts`: `插件的选项参数，详细说明
-```
 
 ### 证书配置
 
@@ -682,7 +683,7 @@ wget  https://github.com/XTLS/Xray-core/releases/download/v1.8.23/Xray-linux-64.
 unzip Xray-linux-64.zip
 ```
 
-配置文件
+配置文件config.json
 
 ```json
 {
@@ -712,7 +713,7 @@ unzip Xray-linux-64.zip
 运行
 
 ```
-./xray run -c 
+./xray run -c config.json
 ```
 
 
@@ -1397,7 +1398,6 @@ wget https://github.com/SagerNet/sing-box/releases/download/v1.10.0-alpha.21/sin
 ```text
 yum install sing-box_1.10.0-alpha.21_linux_amd64.rpm 
 ```
-
 
 
 [https://www.2280129.xyz/article/000041/shadowtls.html](http://link.zhihu.com/?target=https%3A//www.2280129.xyz/article/000041/shadowtls.html)

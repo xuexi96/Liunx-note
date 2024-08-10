@@ -59,7 +59,7 @@ ssl:表示证书的内容，cert表示证书，key表示秘钥
 
 更多选选项说明
 
-[https://p4gefau1t.github.io/trojan-go/basic/full-config/](http://link.zhihu.com/?target=https%3A//p4gefau1t.github.io/trojan-go/basic/full-config/)
+[https://p4gefau1t.github.io/trojan-go/basic/full-config/](https%3A//p4gefau1t.github.io/trojan-go/basic/full-config/)
 
 生成私秘
 
@@ -95,15 +95,15 @@ req -new -x509 申请(req) 一个新的(new) 的x509证书
 nohup ./trojan-go > trojan.log 2>&1 &
 ```
 
-[安装BBR加速](http://link.zhihu.com/?target=https%3A//itlanyan.com/use-bbr-in-centos-7/)
+[安装BBR加速](https%3A//itlanyan.com/use-bbr-in-centos-7/)
 
 客户端下载
 
-[https://itlanyan.com/v2ray-clients-download/](http://link.zhihu.com/?target=https%3A//itlanyan.com/v2ray-clients-download/)
+[https://itlanyan.com/v2ray-clients-download/](https%3A//itlanyan.com/v2ray-clients-download/)
 
-[Release 6.2 · 2dust/v2rayN](http://link.zhihu.com/?target=https%3A//github.com/2dust/v2rayN/releases/tag/6.2)
+[Release 6.2 · 2dust/v2rayN](https%3A//github.com/2dust/v2rayN/releases/tag/6.2)
 
-[https://github.com/Fndroid/clash_for_windows_pkg/releases](http://link.zhihu.com/?target=https%3A//github.com/Fndroid/clash_for_windows_pkg/releases)
+[https://github.com/Fndroid/clash_for_windows_pkg/releases](https%3A//github.com/Fndroid/clash_for_windows_pkg/releases)
 
 
 
@@ -111,7 +111,7 @@ nohup ./trojan-go > trojan.log 2>&1 &
 
 ![img](https://pic1.zhimg.com/v2-3d3bba63ac270b45ccd2033a7533481b_720w.jpg?source=d16d100b)
 
-[trojan配置的详细说明](http://link.zhihu.com/?target=https%3A//p4gefau1t.github.io/trojan-go/)
+[trojan配置的详细说明](https%3A//p4gefau1t.github.io/trojan-go/)
 
 clash配置
 
@@ -141,7 +141,7 @@ proxy-groups:
 
 ## Shadowsocks-libev部署
 
-项目地址：[https://github.com/shadowsocks](http://link.zhihu.com/?target=https%3A//github.com/shadowsocks)
+项目地址：[https://github.com/shadowsocks](https%3A//github.com/shadowsocks)
 
 ### 服务器端
 
@@ -312,7 +312,7 @@ systemctl start shadowsocks
 
 ### 添加v2ray-plugin插件
 
-[v2ray-plugin下载](http://link.zhihu.com/?target=https%3A//github.com/shadowsocks/v2ray-plugin/releases/tag/v1.3.2)
+[v2ray-plugin下载](https%3A//github.com/shadowsocks/v2ray-plugin/releases/tag/v1.3.2)
 
 ```text
 wget https://github.com/shadowsocks/v2ray-plugin/releases/download/v1.3.2/v2ray-plugin-linux-amd64-v1.3.2.tar.gz
@@ -363,7 +363,7 @@ plugin_opts`: `插件的选项参数，详细说明
 
 ### 客户端
 
-[window版的shadowsock下载](http://link.zhihu.com/?target=https%3A//github.com/shadowsocks/shadowsocks-windows/releases)
+[window版的shadowsock下载](https%3A//github.com/shadowsocks/shadowsocks-windows/releases)
 
 ![img](https://pic1.zhimg.com/v2-67636094b745844b80f17768f2974c39_720w.jpg?source=d16d100b)
 
@@ -371,7 +371,7 @@ plugin_opts`: `插件的选项参数，详细说明
 
 ![img](https://pic1.zhimg.com/v2-15ecc32b52935d6c4176528bc7dd6c5e_720w.jpg?source=d16d100b)
 
-[v2ray-plugin下载](http://link.zhihu.com/?target=https%3A//github.com/shadowsocks/v2ray-plugin/releases)
+[v2ray-plugin下载](https%3A//github.com/shadowsocks/v2ray-plugin/releases)
 
 ![img](https://pica.zhimg.com/v2-f300986d23fbd5d087b7ae3e45d03171_720w.jpg?source=d16d100b)
 
@@ -389,7 +389,7 @@ plugin_opts`: `插件的选项参数，详细说明
 
 ![img](https://picx.zhimg.com/v2-59463a3da3fa7b6878ac94f14f7b0299_720w.jpg?source=d16d100b)
 
-[v2ray-plugin安装](http://link.zhihu.com/?target=https%3A//gist.github.com/jshensh/bc2f76b20c4e6876ec6d667e707ec29d)教程
+[v2ray-plugin安装](https%3A//gist.github.com/jshensh/bc2f76b20c4e6876ec6d667e707ec29d)教程
 
 ### clash配置
 
@@ -418,9 +418,9 @@ proxy-groups:
 
 ## V2Ray的安装和使用
 
-[教程](http://link.zhihu.com/?target=https%3A//guide.v2fly.org/basics/vmess.html%23%E9%85%8D%E7%BD%AE%E5%89%8D%E7%9A%84%E5%87%86%E5%A4%87)
+[教程](https%3A//guide.v2fly.org/basics/vmess.html%23%E9%85%8D%E7%BD%AE%E5%89%8D%E7%9A%84%E5%87%86%E5%A4%87)
 
-下载和安装 [官方脚本](http://link.zhihu.com/?target=https%3A//github.com/v2fly/fhs-install-v2ray)
+下载和安装 [官方脚本](https%3A//github.com/v2fly/fhs-install-v2ray)
 
 ```bash
 bash <(curl -L https://raw.githubusercontent.com/v2fly/fhs-install-v2ray/master/install-release.sh)
@@ -486,7 +486,7 @@ port`：`表示监听的端口号
 protocol`:`协议类型
 ```
 
-`id`:`id`， 使用/usr/local/bin/v2ray uuid 生成，[https://www.v2fly.org/awesome/tools.html](http://link.zhihu.com/?target=https%3A//www.v2fly.org/awesome/tools.html)
+`id`:`id`， 使用/usr/local/bin/v2ray uuid 生成，[https://www.v2fly.org/awesome/tools.html](https%3A//www.v2fly.org/awesome/tools.html)
 
 ```
 alterId`:`额外ID
@@ -720,9 +720,9 @@ unzip Xray-linux-64.zip
 
 xray脚本安装
 
-[教程](http://link.zhihu.com/?target=https%3A//xtls.github.io/document/)
+[教程](https%3A//xtls.github.io/document/)
 
-[下载和安装脚本](http://link.zhihu.com/?target=https%3A//github.com/XTLS/Xray-install)
+[下载和安装脚本](https%3A//github.com/XTLS/Xray-install)
 
 ```bash
 bash -c "$(curl -L github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install -u root
@@ -833,7 +833,7 @@ vim config.json
 
 ## x-ui面板安装
 
-[网址](http://link.zhihu.com/?target=https%3A//github.com/vaxilu/x-ui)
+[网址](https%3A//github.com/vaxilu/x-ui)
 
 命令
 
@@ -875,7 +875,7 @@ bash <(curl -Ls https://raw.githubusercontent.com/vaxilu/x-ui/master/install.sh)
 
 ## Hysteria 2
 
-[官网](http://link.zhihu.com/?target=https%3A//v2.hysteria.network/zh/)
+[官网](https%3A//v2.hysteria.network/zh/)
 
 ### 服务器端配置
 
@@ -968,11 +968,11 @@ systemctl status hysteria-server
 
 下载客户端软件
 
-[v2rayN下载](http://link.zhihu.com/?target=https%3A//github.com/2dust/v2rayN/releases/tag/6.43)
+[v2rayN下载](https%3A//github.com/2dust/v2rayN/releases/tag/6.43)
 
 ![img](https://picx.zhimg.com/v2-9120c779f89766210345a4b1ac70e9b4_720w.jpg?source=d16d100b)
 
-[hysteria客户下载](http://link.zhihu.com/?target=https%3A//github.com/apernet/hysteria/releases/tag/app%2Fv2.4.3)
+[hysteria客户下载](https%3A//github.com/apernet/hysteria/releases/tag/app%2Fv2.4.3)
 
 ![img](https://pic1.zhimg.com/v2-7e7c9e5b15679fe1f36f9fc1d454199b_720w.jpg?source=d16d100b)
 
@@ -1281,7 +1281,7 @@ proxies:
 
 CenOS下安装
 
-[ss5下载地址](http://link.zhihu.com/?target=https%3A//jaist.dl.sourceforge.net/project/ss5/ss5/)
+[ss5下载地址](https%3A//jaist.dl.sourceforge.net/project/ss5/ss5/)
 
 安装依赖
 
@@ -1387,7 +1387,7 @@ user3 12345678
 
 ## Shadowtls
 
-[下载地址](http://link.zhihu.com/?target=https%3A//github.com/SagerNet/sing-box/releases)
+[下载地址](https%3A//github.com/SagerNet/sing-box/releases)
 
 ```text
 wget https://github.com/SagerNet/sing-box/releases/download/v1.10.0-alpha.21/sing-box_1.10.0-alpha.21_linux_amd64.rpm
@@ -1400,14 +1400,15 @@ yum install sing-box_1.10.0-alpha.21_linux_amd64.rpm
 ```
 
 
-[https://www.2280129.xyz/article/000041/shadowtls.html](http://link.zhihu.com/?target=https%3A//www.2280129.xyz/article/000041/shadowtls.html)
 
-[接码平台](http://link.zhihu.com/?target=https%3A//sms-activate.org/)
+[https://www.2280129.xyz/article/000041/shadowtls.html](https%3A//www.2280129.xyz/article/000041/shadowtls.html)
 
-[订阅转换](http://link.zhihu.com/?target=https%3A//sub.dler.io/)
+[接码平台](https%3A//sms-activate.org/)
 
-[网站排名](http://link.zhihu.com/?target=https%3A//www.similarweb.com/top-websites/)
+[订阅转换](https%3A//sub.dler.io/)
 
-[虚拟银行卡](http://link.zhihu.com/?target=https%3A//gpt.fomepay.com/%23/)
+[网站排名](https%3A//www.similarweb.com/top-websites/)
 
-[临时邮箱](http://link.zhihu.com/?target=https%3A//temp-mail.org/)
+[虚拟银行卡](https%3A//gpt.fomepay.com/%23/)
+
+[临时邮箱](https%3A//temp-mail.org/)

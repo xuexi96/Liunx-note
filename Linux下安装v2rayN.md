@@ -13,7 +13,7 @@ sudo apt install -y gdebi
 
 
 
-根据
+# 使用dpkg安装
 
 ```Bash
 sudo dpkg -i v2rayN-linux-64.deb

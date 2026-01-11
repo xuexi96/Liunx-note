@@ -6,7 +6,7 @@
 # 86400（一天）
 proxy-providers:
   Mitce:
-    url: "https://app.mitce.net/?sid=405641&token=srvbwmbc"
+    url: "" # 订阅地址
     type: http
     interval: 86400
     health-check:

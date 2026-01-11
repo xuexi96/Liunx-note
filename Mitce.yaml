@@ -18,11 +18,11 @@ proxy-providers:
 # 节点信息
 proxies:
   - {name: 直连, type: direct}
-  - name: "☁️ 阿里云-Trojan"
+  - name: "☁️ 阿里云-Trojan" # 自建
     type: trojan
     server: 47.82.153.5
     port: 443
-    password: "1234567890"
+    password: ""
     udp: true
     sni: bing.com
     skip-cert-verify: true # 对应你的 allowInsecure=1

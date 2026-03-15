@@ -516,6 +516,109 @@ rules — 路由规则（核心）
 
 
 
+住宅IP配置
+
+```
+{
+  "log": {
+    "loglevel": "warning"
+  },
+  "dns":{
+	"servers":[
+    "8.8.8.8",
+    "1.1.1.1"
+  ]
+  },
+  
+  "inbounds": [
+    {
+      "tag": "trojan-in",
+      "port": 443,
+      "protocol": "trojan",
+      "settings": {
+        "clients": [
+          {
+            "password": "12345678910",
+            "email": "user1"
+          }
+        ],
+        "fallbacks": [
+          {
+            "dest": 80
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "tcp",
+        "security": "tls",
+        "tlsSettings": {
+          "alpn": ["h2", "http/1.1"],
+          "certificates": [
+            {
+              "certificateFile": "/usr/local/etc/xray/ssl/us.ffgy.top_bundle.crt",
+              "keyFile": "/usr/local/etc/xray/ssl/us.ffgy.top.key"
+            }
+          ]
+        }
+      },
+      "sniffing": {
+        "enabled": true,
+        "destOverride": ["http", "tls"],
+		"routeOnly": true
+      }
+    }
+  ],
+  "outbounds": [
+	{
+		"tag":"direct",
+		"protocol":"freedom", // 直连
+		"settings":{
+			"domainStrategy": "AsIs"
+		}
+	},
+    {
+      "tag": "block", // 屏蔽
+      "protocol": "blackhole"
+    },
+	{
+      "tag": "ai-proxy-outbounds",
+      "protocol": "socks", // 代理到住宅IP
+      "settings":{
+		"servers":[
+		 {
+			"address":"住宅ip",
+            "port": 443,
+            "users":[
+			  { "user": "用户名", "pass": "密码" }
+			]			
+		 }
+		]  
+	  }
+    }
+  ],
+  "routing": {
+    "rules": [
+      {
+        "type": "field",
+        "outboundTag": "block",
+        "domain": ["geosite:category-ads-all"]
+      },
+	  {
+		"type":"field",
+		"outboundTag":"ai-proxy-outbounds",
+		"domain":[
+		  "domain:chatgpt.com",
+          "domain:claude.ai"
+		]
+	  }
+    ]
+  }
+}
+
+```
+
+
+
 https://xtls.github.io/document/level-1/fallbacks-lv1.html
 
 开启BBR

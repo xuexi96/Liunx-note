@@ -142,13 +142,21 @@ routing
 }
 ```
 
-tag — 入站标识，路由规则通过 `inboundTag` 引用它，用来区分不同入站的流量。不设的话路由无法按入站来源分流。
+### tag 入站标识
 
-port — 监听端口
+路由规则通过 `inboundTag` 引用它，用来区分不同入站的流量。不设的话路由无法按入站来源分流。
 
-listen — 监听地址
+### port 
 
-protocol — 入站协议
+监听端口
+
+### listen
+
+监听地址
+
+### protocol 
+
+ 入站协议
 
 | 协议            | 用途                      |
 | --------------- | ------------------------- |
@@ -160,28 +168,198 @@ protocol — 入站协议
 | `http`          | 本地 HTTP 代理入站        |
 | `dokodemo-door` | 任意门，透明代理/端口转发 |
 
-settings — 协议参数
+### settings 
 
-​			fallbacks 回落参数详解
+#### clients
+
+Trojan 协议
+
+```json
+"settings": {
+  "clients": [
+    {
+      "password": "12345678910",//用户密码，客户端连接时用
+      "email": "user1", // 用户标识，用于流量统计和日志区分
+      "level": 0 //用户等级，对应 policy 中的等级策略
+    }
+  ],
+  "fallbacks": [
+    { "dest": 80 }
+  ]
+}
+```
+
+VMess 协议
+
+```json
+"settings": {
+  "clients": [
+    {
+      "id": "a3482e88-686a-4a58-8126-99c9df64b7bf", //UUID，相当于密码
+      "alterId": 0, //额外 ID 数量，现在都填 0（启用 VMessAEAD 加密，更安全）
+      "email": "user1",
+      "level": 0
+    }
+  ]
+}
+```
+
+VLESS 协议
+
+```json
+"settings": {
+  "clients": [
+    {
+      "id": "a3482e88-686a-4a58-8126-99c9df64b7bf", //UUID
+      "email": "user1",
+      "level": 0,
+      "flow": "xtls-rprx-vision" //flow → 流控模式，配合 REALITY 时常用 "xtls-rprx-vision"
+    }
+  ],
+  "decryption": "none",
+  "fallbacks": [
+    { "dest": 80 }
+  ]
+}
+```
+
+Shadowsocks 协议
+
+```json
+"settings": {
+  "clients": [
+    {
+      "password": "mypassword",  
+      // 加密方式，推荐 "2022-blake3-aes-128-gcm" 或 "2022-blake3-chacha20-poly1305"
+      "method": "2022-blake3-aes-128-gcm",
+      "email": "user1"
+    }
+  ],
+  "network": "tcp,udp" //支持的网络类型，"tcp,udp" 表示都支持
+}
+```
+
+Dokodemo-door（任意门）
+
+用于透明代理或端口转发
+
+```json
+"settings": {
+  "address": "1.1.1.1", // 转发目标地址
+  "port": 53,//转发目标端口
+  "network": "tcp,udp",
+  "followRedirect": true // 是否跟随系统重定向（透明代理时设 true）
+}
+```
+
+Socks 入站
+
+```json
+"settings": {
+  "auth": "password",// auth → "noauth" 免认证 / "password" 需要认证
+  "accounts": [
+    {
+      "user": "admin",
+      "pass": "123456"
+    }
+  ],
+  "udp": true, //udp → 是否支持 UDP
+  "ip": "127.0.0.1" //ip → UDP 回传时用的 IP
+}
+```
+
+HTTP 入站
+
+```json
+"settings": {
+  "accounts": [
+    {
+      "user": "admin",
+      "pass": "123456"
+    }
+  ],
+  "allowTransparent": false
+}
+```
 
 
 
-streamSettings — 传输层配置
+#### fallbacks 
+
+回落参数详解
+
+```json
+"fallbacks": [
+    //路径是 /ws 的请求 → 转到 8080
+   { 
+       "path": "/ws", 
+       "dest": 8080 
+   },
+    // 客户端用 HTTP/2 连接的 → 转到 8443
+   { 
+       "alpn": "h2", 
+       "dest": 8443
+   },
+   // 回落到 80 端口,xver — 传不传来源 IP,
+   //默认后端看到的来源 IP 是 127.0.0.1，看不到真实客户端 IP
+   //0 → 不传（默认）
+   //1 → PROXY Protocol v1（文本格式）
+   //2 → PROXY Protocol v2（二进制格式）
+  { "dest": 80, "xver": 1 }
+]
+```
+
+
+
+
+
+### streamSettings 
+
+传输层配置
 
 ```json
 "streamSettings": {
-  "network": "tcp",
+  //传输层协议,"tcp" → 原始 TCP,"ws" → WebSocket,"grpc" → gRPC,"http" → HTTP/2,"quic" → 基于 UDP 的 QUIC
+  "network": "tcp", 
+  // security — 加密方式,"tls" → 标准 TLS 加密,"reality" → Xray 自研的 REALITY,"none" → 不加密
   "security": "tls",
-  "tlsSettings": {},
-  "realitySettings": {},
+  // TLS 的具体参数
+  "tlsSettings": {
+      // TLS 协商时支持哪些应用协议
+      "alpn":["h2", "http/1.1"],
+      // TLS 证书配置
+      "certificates":{
+          "certificateFile":"", //证书文件路径
+          "keyFile":"" //私钥文件路径
+      }
+  },
+  // realitySettings 是 security 设为 "reality" 时的配置项
+  "realitySettings": {
+      // 当非法连接到来时（比如审查者主动探测），Xray 会把流量转发到这个目标网站
+      "dest":"www.apple.com:443",
+      //允许的 SNI,客户端连接时 TLS 握手中携带的域名（SNI），必须和 dest 对应
+      "serverNames":["www.apple.com"],
+      //服务端私钥,通过命令生成xray x25519,
+      "privateKey": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      // 类似密码的附加验证，服务端和客户端必须一致
+      "shortIds": ["abcd1234"],
+      // TLS 指纹伪装
+      "fingerprint": "chrome"
+  },
+  //tcpSettings 是 network 设为 "tcp" 时的可选配置，主要用来给 TCP 流量加一层伪装头部，让流量看起来像普通的 HTTP 请求
   "tcpSettings": {},
+  // wsSettings 是 network 设为 "ws" 时的配置，让流量通过 WebSocket 传输。最大优势是可以套 CDN（如 Cloudflare），隐藏服务器真实 IP
   "wsSettings": {},
+   //grpcSettings 是 network 设为 "grpc" 时的配置 
   "grpcSettings": {},
+   // httpSettings 是 network 设为 "http" 时的配置，让流量通过 HTTP/2 传输
   "httpSettings": {}
 }
 ```
 
-sniffing — 流量嗅探
+### sniffing
+
+ 流量嗅探
 
 ```json
 "sniffing": {
@@ -394,7 +572,9 @@ rules — 路由规则（核心）
 
 
 
-#### freedom 出站可选配置
+### settings配置
+
+#### Freedom（直连出口）
 
 ```json
 {
@@ -416,9 +596,30 @@ rules — 路由规则（核心）
 
 `redirect` 可以把所有流量强制转发到指定地址，不常用。
 
+#### blackhole（黑洞，丢弃流量）
+
+```json
+{
+      "tag": "block", 
+      "protocol": "blackhole"
+}
+```
+
+
+
+```json
+"settings": {
+  "response": {
+    "type": "http" // type → "none" 直接断开 / "http" 返回一个 403 响应再断开
+  }
+}
+```
+
 
 
 #### SOCKS5 出站（接住宅 IP）
+
+流量通过远端 SOCKS5 代理转发出去
 
 ```json
 {
@@ -427,7 +628,7 @@ rules — 路由规则（核心）
   "settings": {
     "servers": [
       {
-        "address": "gate.provider.com",
+        "address": "69.3.215.140", // 
         "port": 7777,
         "users": [
           { "user": "xxx", "pass": "xxx" }
@@ -438,7 +639,128 @@ rules — 路由规则（核心）
 }
 ```
 
+Trojan 出口
 
+```json
+{
+  "tag": "trojan-out",
+  "protocol": "trojan",
+  "settings": {
+    "servers": [
+      {
+        "address": "ffgy.net", // 对应远端服务器 inbound 里 clients 的密码
+        "port": 443,
+        "password": "123456",
+        "email": "user1",
+        "level": 0
+      }
+    ]
+  },
+  "streamSettings": {
+    "network": "tcp",
+    "security": "tls",
+    "tlsSettings": {
+      "serverName": "ffgy.net" // TLS 握手时的 SNI，必须和远端证书域名一致
+    }
+  }
+}
+```
+
+VMess 出口
+
+```json
+{
+  "tag": "vmess-out",
+  "protocol": "vmess",
+  "settings": {
+    // "下一跳"节点列表
+    "vnext": [
+      {
+        "address": "ffgy.net", 
+        "port": 443,
+        "users": [
+          {
+            "id": "a3482e88-686a-4a58-8126-99c9df64b7bf", //对应远端 inbound 的 id
+            "alterId": 0, //填 0，启用 AEAD 加密
+             //VMess 自身的加密方式,"auto" → 自动选择（推荐）,
+             //"aes-128-gcm" → AES 加密,
+             //"chacha20-poly1305" → ChaCha20 加密
+             //"none" → 不加密（外层有 TLS 时可以用，减少性能开销）
+             // "zero" → 完全不加密不校验（不推荐）
+            "security": "auto",
+            "level": 0
+          }
+        ]
+      }
+    ]
+  },
+  "streamSettings": {
+    "network": "ws",
+    "security": "tls",
+    "wsSettings": {
+      "path": "/mypath",
+      "headers": {
+        "Host": "ffgy.net"
+      }
+    }
+  }
+}
+```
+
+VLESS 出口
+
+```json
+{
+  "tag": "vless-out",
+  "protocol": "vless",
+  "settings": {
+    "vnext": [
+      {
+        "address": "ffgy.net",
+        "port": 443,
+        "users": [
+          {
+            "id": "a3482e88-686a-4a58-8126-99c9df64b7bf",
+            "encryption": "none",//encryption → 固定填 "none"，VLESS 不做自身加密
+            "flow": "xtls-rprx-vision", //flow → 流控模式，配合 REALITY 时填 "xtls-rprx-vision"
+            "level": 0
+          }
+        ]
+      }
+    ]
+  },
+  "streamSettings": {
+    "network": "tcp",
+    "security": "reality",
+    "realitySettings": {
+      "serverName": "www.apple.com",
+      "publicKey": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", //publicKey → 对应服务端 privateKey 生成的公钥
+      "shortId": "abcd1234", //shortId → 对应服务端 shortIds 中的一个
+      "fingerprint": "chrome" //TLS 指纹伪装，和服务端一致
+    }
+  }
+}
+```
+
+Shadowsocks 出口
+
+```json
+{
+  "tag": "ss-out",
+  "protocol": "shadowsocks", 
+  "settings": {
+    "servers": [
+      {
+        "address": "ffgy.net",
+        "port": 8388,
+        "method": "2022-blake3-aes-128-gcm", // 加密方式，和服务端一致
+        "password": "base64encodedkey==", // 密钥，2022 系列加密需要 base64 编码的密钥
+        "level": 0
+      }
+    ]
+  }
+}
+```
 
 
 
@@ -518,7 +840,7 @@ rules — 路由规则（核心）
 
 住宅IP配置
 
-```
+```json
 {
   "log": {
     "loglevel": "warning"
@@ -542,6 +864,7 @@ rules — 路由规则（核心）
             "email": "user1"
           }
         ],
+        //  流量回落,当不是protocol指定的流量时，流量将进入这里
         "fallbacks": [
           {
             "dest": 80
@@ -561,10 +884,11 @@ rules — 路由规则（核心）
           ]
         }
       },
-      "sniffing": {
-        "enabled": true,
-        "destOverride": ["http", "tls"],
-		"routeOnly": true
+      // 嗅探
+      "sniffing": {  
+        "enabled": true, // 流量嗅探
+        "destOverride": ["http", "tls"], //用嗅探到的域名替换原始目标地址
+		"routeOnly": true //嗅探的域名只用于路由,不会替换真实连接地址
       }
     }
   ],

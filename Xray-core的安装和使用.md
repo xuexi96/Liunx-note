@@ -317,6 +317,8 @@ HTTP 入站
 
 传输层配置
 
+TCP配置
+
 ```json
 "streamSettings": {
   //传输层协议,"tcp" → 原始 TCP,"ws" → WebSocket,"grpc" → gRPC,"http" → HTTP/2,"quic" → 基于 UDP 的 QUIC
@@ -328,10 +330,11 @@ HTTP 入站
       // TLS 协商时支持哪些应用协议
       "alpn":["h2", "http/1.1"],
       // TLS 证书配置
-      "certificates":{
+      "certificates":[{
           "certificateFile":"", //证书文件路径
           "keyFile":"" //私钥文件路径
       }
+      ]
   },
   // realitySettings 是 security 设为 "reality" 时的配置项
   "realitySettings": {
@@ -356,6 +359,181 @@ HTTP 入站
   "httpSettings": {}
 }
 ```
+
+WebSocket配置
+
+```json
+"streamSettings":{
+	"network": "ws", // 传输层是WebSocket
+    "security": "tls", // 加密方式
+    "tlsSettings":{
+        "certificates":[
+            {
+                "certificateFile":"",//证书文件路径
+                "keyFile":""//私钥文件路径
+            }
+        ]
+    },
+    "wsSettings":{
+        "path":"/trojan-ws", // 路径
+        // 选择设置
+        "headers":{
+            "Host":"your-domain.com" // 对应N2rayN里的伪装域名
+        }
+    }
+    
+
+}
+```
+
+grpc
+
+```json
+"streamSettings":{
+	"network": "grpc", // 传输层是WebSocket
+    "security": "tls", // 加密方式
+    "tlsSettings":{
+        "certificates":[
+            {
+                "certificateFile":"",//证书文件路径
+                "keyFile":""//私钥文件路径
+            }
+        ]
+    },
+    "grpcSettings": {
+        "serviceName": "mygrpc", // grpc的serviceName
+         "multiMode": true, //  false是gun 模式，true是multi 模式
+         "authority":"your-domain.com" // grpc的Authority
+    }
+}
+```
+
+http
+
+```json
+"streamSettings":{
+	"network": "http", // 传输层是h2
+    "security": "tls", // 加密方式
+    "tlsSettings":{
+        "certificates":[
+            {
+                "certificateFile":"",//证书文件路径
+                "keyFile":""//私钥文件路径
+            }
+        ]
+    },
+    "httpSettings": {
+      "host": ["your-domain.com"], // 域名列表
+      "path": "/h2-path", //请求路径，类似 ws 的 path
+      "method": "PUT" //HTTP 方法，默认 "PUT"，一般不需要改
+    }
+}
+```
+
+quic
+
+```json
+{
+  "streamSettings": {
+    "network": "quic",
+    "security": "tls",
+    "tlsSettings": {
+        "certificates": [
+            {
+              "certificateFile": "/path/to/cert.pem",
+              "keyFile": "/path/to/key.pem"
+            }
+          ]
+        },
+    // 设置quic
+    "quicSettings": {
+      "security": "none",// 密方式，可选值："none"、"aes-128-gcm"、"chacha20-poly1305"
+      "key": "",// 加密密钥，当 security 不为 "none" 时需要填写，客户端服务端必须一致。
+      "header": {
+        "type": "none" //伪装类型,"none":不伪装,"srtp":伪装成视频通话（如 WebRTC）,"utp":伪装成 BT 下载,"wechat-video":伪装成微信视频通话,"dtls":伪装成 DTLS 1.2,"wireguard":伪装成 WireGuard
+      }
+    }
+  }
+}
+```
+
+kcp
+
+```json
+{
+  "streamSettings": {
+    "network": "kcp",
+    "kcpSettings": {
+      "mtu": 1350, // 最大传输单元，一般不需要改
+      "tti": 50, // 传输时间间隔（毫秒），越小延迟越低但越耗流量
+      "uplinkCapacity": 12, //上行带宽（MB/s），按实际带宽填
+      "downlinkCapacity": 100, //下行带宽（MB/s），按实际带宽填
+      "congestion": false, // 是否启用拥塞控制
+      "readBufferSize": 2, //读取缓冲区（MB）
+      "writeBufferSize": 2, //写入缓冲区（MB）
+      "seed": "your-password", // 加密混淆密钥，客户端服务端必须一致
+      "header": {
+        "type": "none" //伪装类型,"none":不伪装,"srtp":伪装成视频通话（如 WebRTC）,"utp":伪装成 BT 下载,"wechat-video":伪装成微信视频通话,"dtls":伪装成 DTLS 1.2,"wireguard":伪装成 WireGuard
+      }
+    }
+  }
+}
+```
+
+httpupgrade
+
+```json
+"streamSettings": {
+    "network": "quic",
+    "security": "tls",
+    "tlsSettings": {
+        "certificates": [
+            {
+              "certificateFile": "/path/to/cert.pem",
+              "keyFile": "/path/to/key.pem"
+            }
+          ]
+        },
+    "httpupgradeSettings": {
+      "path": "/your-path", //请求路径，客户端服务端必须一致
+      "host": "your-domain.com" //请求的域名，作用等同于 ws 的 headers.Host
+    }
+}
+```
+
+ XHTTP(SplitHTTP)
+
+```json
+"streamSettings": {
+    "network": "quic",
+    "security": "tls",
+    "tlsSettings": {
+        "certificates": [
+            {
+              "certificateFile": "/path/to/cert.pem",
+              "keyFile": "/path/to/key.pem"
+            }
+          ]
+        },
+    "xhttpSettings": {
+      "path": "/your-path", //请求路径，客户端服务端必须一致
+      "host": "your-domain.com", //请求域名，同 ws 的 Host
+      "mode": "auto" //传输模式，核心字段,"auto"自动选择（默认）,"packet-up"上行用 POST 分包，下行用流式响应,"stream-up"上下行都用流式传输（需 HTTP/2 或 HTTP/3）,"stream-one"单个 POST 请求完成上下行（类似普通 HTTP）
+    }
+}
+```
+
+**全部传输方式对比：**
+
+| 传输方式    | 协议 | 支持 CDN | 支持反代 | 需要 TLS | 特点                     |
+| ----------- | ---- | -------- | -------- | -------- | ------------------------ |
+| WebSocket   | TCP  | ✅        | ✅        | 可选     | 兼容性最好               |
+| HTTPUpgrade | TCP  | ✅        | ✅        | 可选     | 轻量版 WS                |
+| gRPC        | TCP  | ✅        | ✅        | 可选     | 多路复用                 |
+| XHTTP       | TCP  | ✅        | ✅        | 可选     | 伪装性最强，CDN 兼容最广 |
+| HTTP/2      | TCP  | ❌        | ✅        | 必须     | 原生多路复用             |
+| QUIC        | UDP  | ❌        | ❌        | 必须     | 低延迟                   |
+| mKCP        | UDP  | ❌        | ❌        | 不需要   | 抗丢包，费流量           |
 
 ### sniffing
 

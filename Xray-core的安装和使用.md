@@ -590,8 +590,10 @@ rules — 路由规则（核心）
   "outboundTag": "出站tag",    // 匹配后走哪个出站
   // 或
   "balancerTag": "均衡器tag",  // 匹配后走负载均衡
+  
 
   // 以下是匹配条件，可以组合使用（同一条规则内是 AND 关系）
+  "inboundTag": [],
   "domain": [],
   "ip": [],
   "port": "",
@@ -599,7 +601,7 @@ rules — 路由规则（核心）
   "network": "",
   "source": [],
   "user": [],
-  "inboundTag": [],
+ 
   "protocol": [],
   "attrs": {}
 }
@@ -1730,6 +1732,240 @@ VLESS + WebSocket + TLS
   }
 }
 
+```
+
+
+
+CDN路径:   客户端 → CDN → Nginx → trojan-in_ws → 无匹配规则 → freedom(直连) 
+
+直连路径:  客户端 → trojan-in(442) → socks-out(付费SOCKS5) → 目标网站
+
+
+
+客户端 → CDN → Nginx → trojan-in_ws → 无匹配规则 → freedom(直连) 的配置
+
+1、在cloudflare注册域名或将域名托管的cloudflare
+
+2、在cloudflare添加DNS解析，并打开CDN
+
+3、在cloudflare申请ssh/tls,选择"源服务器"
+
+4、将申请到的证书配置的nginx，配置反向代理
+
+```
+
+worker_processes  1;
+events {
+    worker_connections  1024;
+}
+
+
+http {
+    include       mime.types;
+    default_type  application/octet-stream;
+    sendfile        on;
+    keepalive_timeout  65;
+
+  
+    server {
+		# 端口
+        listen       80;
+		
+		# 域名
+        server_name  ffgy.xx;
+		
+		# 当访问80端口时重定向到443端口
+	    return 301 https://$host$request_uri; 
+    }
+
+    server {
+		# 端口
+        listen 443 ssl http2;
+		
+		# 域名
+		server_name ffgy.xx;
+		
+		# cloudflare 申请的证书
+		ssl_certificate     /etc/ssl/ffgy.xx/ffgy.xx.pem; 
+		
+		# cloudflare 申请的key
+        ssl_certificate_key /etc/ssl/ffgy.xx/ffgy.xx.key; 
+		
+        ssl_protocols       TLSv1.2 TLSv1.3;
+        ssl_ciphers         ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384;
+        ssl_prefer_server_ciphers on; 
+
+
+
+	location / {
+            root   html;
+            index  index.html index.htm;
+    	}
+    
+	# ws的路由时/ray时 反向代理的xray的10000 
+    location /ray {
+        proxy_redirect off;
+        proxy_pass http://127.0.0.1:10000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_read_timeout 300s;
+        proxy_send_timeout 300s;
+    }
+
+    }
+
+}
+
+```
+
+
+
+
+
+5、xray配置
+
+```json
+{
+  "log": {
+    "loglevel": "warning"
+  },
+  "dns": {
+    "servers": ["8.8.8.8", "1.1.1.1"]
+  },
+  "inbounds": [
+    {
+      "tag": "trojan-in_ws",
+      "port": 10000, // nginx 流量代理的10000端口
+      "listen": "127.0.0.1",
+      "protocol": "trojan",
+      "settings": {
+        "clients": [
+          {
+            "password": "123456",
+            "email": "user1"
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "ws", // 
+        "wsSettings": {
+          "path": "/ray" // 和nginx的一致
+        }
+      }
+    },
+    {
+      "tag": "trojan-in",
+      "port": 442,
+      "protocol": "trojan",
+      "settings": {
+        "clients": [
+          {
+            "password": "123456",
+            "email": "user1"
+          }
+        ],
+        "fallbacks": [
+          {
+            "dest": 443
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "tcp",
+        "security": "tls",
+        "tlsSettings": {
+          "alpn": ["h2", "http/1.1"],
+          "certificates": [
+            {
+              "certificateFile": "/usr/local/etc/xray/ssl/ffgy.xx.crt", // 这里的证书不是从cloudflare申请的
+              "keyFile": "/usr/local/etc/xray/ssl/ffgy.xx.key" // 这里的证书不是从cloudflare申请的
+            }
+          ]
+        }
+      },
+      "sniffing": {
+        "enabled": true,
+        "destOverride": ["http", "tls"],
+        "routeOnly": true
+      }
+    }
+  ],
+  "outbounds": [
+    {
+      "protocol": "freedom",
+      "tag": "direct",
+      "settings": {
+        "domainStrategy": "AsIs"
+      }
+    },
+    {
+      "tag": "socks-out",
+      "protocol": "socks",
+      "settings": {
+        "servers": [
+          {
+            "address": "69.13.215.144",
+            "port": 443,
+            "users": [
+              { "user": "admin", "pass": "123456789" }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "tag": "block",
+      "protocol": "blackhole"
+    }
+  ],
+  "routing": {
+    "rules": [
+      {
+        "type": "field",
+        "outboundTag": "socks-out",
+        "inboundTag": ["trojan-in"]
+      },
+      {
+        "type": "field",
+        "outboundTag": "block",
+        "domain": ["geosite:category-ads-all"]
+      }
+    ]
+  }
+}
+```
+
+
+
+clash配置
+
+```yaml
+  - name: "colocrossing-CDN"
+    type: trojan
+    server: ffgy.xx
+    port: 443
+    password: "123456"
+    sni: ffgy.xx
+    skip-cert-verify: false
+    network: ws
+    ws-opts:
+      path: /ray
+      headers:
+        Host: ffgy.xx
+    
+  - name: colocrossing # https://cloud.colocrossing.com/
+    type: trojan
+    server: ffgy.xx
+    port: 442
+    password: "123456"
+    udp: true
+    sni: ffgy.xx
+    skip-cert-verify: false # 对应你的 allowInsecure=1
+    network: tcp
 ```
 
 

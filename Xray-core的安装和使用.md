@@ -213,7 +213,7 @@ VLESS 协议
       "id": "a3482e88-686a-4a58-8126-99c9df64b7bf", //UUID
       "email": "user1",
       "level": 0,
-      "flow": "xtls-rprx-vision" //flow → 流控模式，配合 REALITY 时常用 "xtls-rprx-vision"
+      "flow": "xtls-rprx-vision" //flow → 流控模式，配合 REALITY 时常用 "xtls-rprx-vision",streamSettings.network是tcp时才设置
     }
   ],
   "decryption": "none",
@@ -1469,7 +1469,6 @@ Shadowsocks 出口
           ],
           "privateKey": "YOUR_PRIVATE_KEY",
           "shortIds": [
-            "",
             "0123456789abcdef"
           ]
         }
@@ -1591,7 +1590,7 @@ Shadowsocks 出口
 
 
 
-VLESS + WebSocket + TLS
+# VLESS + WebSocket + TLS
 
 服务器
 
@@ -1600,50 +1599,53 @@ VLESS + WebSocket + TLS
   "log": {
     "loglevel": "warning"
   },
+  "dns": {
+    "servers": ["8.8.8.8", "1.1.1.1"]
+  },
   "inbounds": [
     {
-      "tag": "vless-ws-in",
-      "port": 443,
-      "listen": "0.0.0.0",
-      "protocol": "vless",
-      "settings": {
-        "clients": [
-          {
-            "id": "a3482e88-686a-4a58-8126-99c9df64b7bf",
-            "email": "user1@example.com"
-          }
-        ],
-        "decryption": "none"
-      },
-      "streamSettings": {
-        "network": "ws",
-        "security": "tls",
-        "tlsSettings": {
-          "certificates": [
-            {
-              "certificateFile": "/etc/xray/cert.pem",
-              "keyFile": "/etc/xray/key.pem"
-            }
-          ],
-          "alpn": ["h2", "http/1.1"]
-        },
-        "wsSettings": {
-          "path": "/vless-ws",
-          "headers": {
-            "Host": "your-domain.com"
-          }
+  "tag": "vless-ws-in",
+  "port": 443,
+  "listen": "0.0.0.0",
+  "protocol": "vless",
+  "settings": {
+    "clients": [
+      {
+        "id": "3f380144-51d3-4b3f-bc9f-9c05b99a3de5",
+        "email": "user1"
+      }
+    ],
+    "decryption": "none"
+  },
+  "streamSettings": {
+    "network": "ws",
+    "security": "tls",
+    "tlsSettings": {
+      "certificates": [
+        {
+          "certificateFile": "/etc/ssl/us.ffgy.top/us.ffgy.top_bundle.crt",
+          "keyFile": "/etc/ssl/us.ffgy.top/us.ffgy.top.key"
         }
-      },
-      "sniffing": {
-        "enabled": true,
-        "destOverride": ["http", "tls", "quic"]
+      ],
+	  "alpn": ["h2", "http/1.1"]
+    },
+    "wsSettings": {
+      "path": "/ray",
+      "headers": {
+        "Host": "us.ffgy.top"
       }
     }
+  }
+}
+	
   ],
   "outbounds": [
     {
+      "protocol": "freedom",
       "tag": "direct",
-      "protocol": "freedom"
+      "settings": {
+        "domainStrategy": "AsIs"
+      }
     },
     {
       "tag": "block",
@@ -1651,17 +1653,11 @@ VLESS + WebSocket + TLS
     }
   ],
   "routing": {
-    "domainStrategy": "AsIs",
     "rules": [
       {
         "type": "field",
         "outboundTag": "block",
-        "protocol": ["bittorrent"]
-      },
-      {
-        "type": "field",
-        "outboundTag": "block",
-        "ip": ["geoip:private"]
+        "domain": ["geosite:category-ads-all"]
       }
     ]
   }
@@ -1672,7 +1668,7 @@ VLESS + WebSocket + TLS
 
 客户端
 
-```
+```json
 {
   "log": {
     "loglevel": "warning"
@@ -1701,11 +1697,11 @@ VLESS + WebSocket + TLS
       "settings": {
         "vnext": [
           {
-            "address": "your-domain.com",
+            "address": "服务器地址",
             "port": 443,
             "users": [
               {
-                "id": "a3482e88-686a-4a58-8126-99c9df64b7bf",
+                "id": "3f380144-51d3-4b3f-bc9f-9c05b99a3de5",
                 "encryption": "none"
               }
             ]
@@ -1716,15 +1712,15 @@ VLESS + WebSocket + TLS
         "network": "ws",
         "security": "tls",
         "tlsSettings": {
-          "serverName": "your-domain.com",
+          "serverName": "us.ffgy.top",
           "allowInsecure": false,
           "fingerprint": "chrome",
           "alpn": ["h2", "http/1.1"]
         },
         "wsSettings": {
-          "path": "/vless-ws",
+          "path": "/ray",
           "headers": {
-            "Host": "your-domain.com"
+            "Host": "us.ffgy.top"
           }
         }
       }

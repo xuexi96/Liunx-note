@@ -284,6 +284,62 @@ HTTP 入站
 
 
 
+端口转发和透明代理dokodemo-door 
+
+```json
+{
+  "inbounds": [
+    {
+      "port": 12345,//监听本机的端口
+      "protocol": "dokodemo-door",
+      "settings": {
+        "address": "1.2.3.4", // 转发目标地址,followRedirect:false
+        "port": 443, // 转发目标端口,followRedirect:false
+        "network": "tcp,udp", // 支持的网络类型
+        //false:表示端口转发，结合使用address:port 。true：透明代理
+        "followRedirect": false 
+      }
+    }
+  ]
+}
+```
+
+
+
+透明代理
+
+```
+局域网设备的所有流量
+       ↓
+   iptables 全部拦截
+       ↓
+   转给 Xray:12345
+       ↓
+   Xray 读取原始目标地址
+       ↓
+  routing 判断去哪
+     ↙        ↘
+  直连(freedom)   代理(vless/vmess)
+  国内流量         国外流量
+```
+
+设置 iptables
+
+```
+# 排除 Xray 自身流量，防止回环
+iptables -t nat -A OUTPUT -m mark --mark 0xff -j RETURN
+
+# 排除内网和保留地址
+iptables -t nat -A PREROUTING -d 127.0.0.0/8 -j RETURN
+iptables -t nat -A PREROUTING -d 192.168.0.0/16 -j RETURN
+iptables -t nat -A PREROUTING -d 10.0.0.0/8 -j RETURN
+
+# 劫持所有 TCP 到 Xray
+iptables -t nat -A PREROUTING -p tcp -j REDIRECT --to-ports 12345
+```
+
+
+
 #### fallbacks 
 
 回落参数详解
@@ -541,10 +597,18 @@ httpupgrade
 
 ```json
 "sniffing": {
-  "enabled": true,
+  // true开启嗅探,false 关闭嗅探
+  "enabled": true, 
+    
+  //指定“允许嗅探并识别的协议类型”
+  //"http":解析 HTTP 请求头 → Host
+  //"tls":解析 TLS ClientHello → SNI
+  //"quic":尝试解析 QUIC (UDP) 的域名
+  //"fakedns":识别 FakeDNS 记录并还原域名
   "destOverride": ["http", "tls", "quic", "fakedns"],
-  "metadataOnly": false,
-  "routeOnly": true
+    
+  "metadataOnly": false, //仅用元数据嗅探，不读内容
+  "routeOnly": true //true:嗅探结果仅用于路由，不覆盖实际目标地址,false:覆盖实际目标地址
 }
 ```
 
@@ -556,6 +620,69 @@ httpupgrade
 | `routeOnly`    | 嗅探结果仅用于路由，不覆盖实际目标地址 |
 
 allocate — 端口分配策略
+
+```
+┌──────────────────────────┐
+│        客户端请求         │
+│  访问：1.2.3.4:443       │
+└────────────┬─────────────┘
+             │
+             ▼
+┌──────────────────────────┐
+│     Xray 接收到连接       │
+│  (inbound: socks/tproxy) │
+└────────────┬─────────────┘
+             │
+             ▼
+┌──────────────────────────┐
+│     Sniffing 启动         │
+│  读取前几个数据包         │
+└────────────┬─────────────┘
+             │
+             ▼
+┌──────────────────────────┐
+│   解析协议类型            │
+│  ├─ HTTP → Host           │
+│  └─ TLS  → SNI            │
+└────────────┬─────────────┘
+             │
+     ┌───────┴────────┐
+     │                │
+     ▼                ▼
+┌──────────────┐  ┌──────────────┐
+│  成功拿到域名 │  │   失败（无域名）│
+│  google.com   │  │   只有 IP     │
+└──────┬───────┘  └──────┬───────┘
+       │                  │
+       ▼                  ▼
+┌──────────────┐   ┌──────────────┐
+│ 覆盖目标地址  │   │ 使用原始 IP   │
+│ google.com    │   │ 1.2.3.4      │
+└──────┬───────┘   └──────┬───────┘
+       │                  │
+       ▼                  ▼
+┌──────────────────────────┐
+│        路由匹配            │
+│  geosite / geoip / rule   │
+└────────────┬─────────────┘
+             │
+             ▼
+┌──────────────────────────┐
+│        选择出口            │
+│  ├─ direct（直连）        │
+│  ├─ proxy（代理）         │
+│  ├─ block（拦截）         │
+│  └─ balancer（负载均衡）  │
+└────────────┬─────────────┘
+             │
+             ▼
+┌──────────────────────────┐
+│        发起真实连接         │
+│   → 目标服务器（最终）     │
+└──────────────────────────┘
+```
+
+
 
 
 
@@ -1631,7 +1758,9 @@ VLESS + WebSocket + TLS
 
 
 
-住宅IP配置
+
+
+客户端----->trojan------>socks5----->目标地址
 
 ```json
 {
@@ -1736,7 +1865,7 @@ VLESS + WebSocket + TLS
 
 
 
-CDN路径:   客户端 → CDN → Nginx → trojan-in_ws → 无匹配规则 → freedom(直连) 
+CDN路径:   客户端 → CDN → Nginx(/ray 代理到) → trojan-in_ws → 无匹配规则 → freedom(直连) 
 
 直连路径:  客户端 → trojan-in(442) → socks-out(付费SOCKS5) → 目标网站
 
@@ -1980,5 +2109,52 @@ https://xtls.github.io/document/level-1/fallbacks-lv1.html
 echo "net.core.default_qdisc=fq" >> /etc/sysctl.conf
 echo "net.ipv4.tcp_congestion_control=bbr" >> /etc/sysctl.conf
 sysctl -p
+```
+
+
+
+转发流量
+
+```json
+{
+  "log": {
+    "access": "/var/log/xray/access.log",
+    "error": "/var/log/xray/error.log",
+    "loglevel": "debug"
+  },
+  "inbounds": [
+    {
+      "tag": "in",
+      "port": 443,
+      "protocol": "dokodemo-door",
+      "settings": {
+        "network": "tcp"
+      },
+      "sniffing": {
+        "enabled": true,
+        "destOverride": ["tls", "http"]
+      }
+    }
+  ],
+  "outbounds": [
+    {
+      "tag": "direct",
+      "protocol": "freedom"
+    },
+    {
+      "tag": "block",
+      "protocol": "blackhole"
+    }
+  ],
+  "routing": {
+    "rules": [
+      {
+        "type": "field",
+        "ip": ["127.0.0.1"], //防止本机换回
+        "outboundTag": "block"
+      }
+    ]
+  }
+}
 ```
 

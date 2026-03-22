@@ -174,134 +174,717 @@ routing
 
 Trojan 协议
 
+trojan+tcp+tls
+
 ```json
-"settings": {
-  "clients": [
-    {
-      "password": "12345678910",//用户密码，客户端连接时用
-      "email": "user1", // 用户标识，用于流量统计和日志区分
-      "level": 0 //用户等级，对应 policy 中的等级策略
+{
+    "tag": "trojan-in",
+    "listen": "0.0.0.0",
+    "port": 443,
+    "protocol": "trojan",
+
+    "settings": {
+      "clients": [
+        {
+          "password": "12345678910",  // 用户密码，客户端连接时用
+                                       // 建议用复杂密码，可以是任意字符串
+          "email": "user1",           // 用户标识，用于流量统计和日志区分
+          "level": 0                  // 用户等级，对应 policy 中的等级策略
+        },
+        {
+          "password": "another-strong-password",
+          "email": "user2",
+          "level": 0
+        }
+      ],
+
+      // Trojan 的回落，和 VLESS 完全一致
+      // 当流量不是有效的 Trojan 请求时（如密码错误），按条件转发
+      // 要求入站必须是 TCP+TLS
+      "fallbacks": [
+        {
+          "alpn": "h2",                    // 匹配 HTTP/2 流量
+          "dest": "/dev/shm/h2c.sock",     // 转发到 Unix socket
+          "xver": 1                        // 发送 PROXY protocol v1
+        },
+        {
+          "path": "/wspath",         // 匹配 HTTP 路径，分流 WebSocket 流量
+          "dest": 2000,
+          "xver": 1
+        },
+        {
+          "name": "blog.example.com",  // 匹配 TLS SNI，按域名分流
+          "dest": 3000,
+          "xver": 1
+        },
+        {
+          "dest": 80                   // 默认兜底，未匹配的流量转发到 80 端口
+                                       // 通常指向 Nginx 展示正常网站，防探测
+        }
+      ]
+    },
+
+    "streamSettings": {
+      "network": "tcp",              // Trojan 标准用法就是 TCP
+      "security": "tls",             // Trojan 必须搭配 TLS
+                                      // Trojan 也支持 REALITY
+
+      "tlsSettings": {
+        "certificates": [
+          {
+            "certificateFile": "/path/to/fullchain.crt",
+            "keyFile": "/path/to/private.key"
+          }
+        ],
+        "alpn": ["h2", "http/1.1"]   // 支持 HTTP/2 和 HTTP/1.1
+                                      // 如果 fallbacks 中有按 alpn 分流则需要配
+      }
+
+    },
+
+    "sniffing": {
+      "enabled": true,
+      "destOverride": ["http", "tls", "quic"],
+      "routeOnly": false
     }
-  ],
-  "fallbacks": [
-    { "dest": 80 }
-  ]
+  }
+```
+
+
+
+trojan+ws+tls
+
+```json
+{
+    "tag": "trojan-ws-in",
+    "listen": "0.0.0.0",
+    "port": 443,
+    "protocol": "trojan",
+
+    "settings": {
+      "clients": [
+        {
+          "password": "12345678910",  // 用户密码，客户端连接时用
+          "email": "user1",
+          "level": 0
+        }
+      ]
+      // WebSocket 传输不支持 fallbacks
+      // fallbacks 要求入站必须是 TCP+TLS
+    },
+
+    "streamSettings": {
+      "network": "ws",              // 传输方式改为 WebSocket
+      "security": "tls",            // 搭配 TLS
+                                     // 前置 Nginx/Caddy 处理 TLS 时填 "none"
+
+      "tlsSettings": {
+        "certificates": [
+          {
+            "certificateFile": "/path/to/fullchain.crt",
+            "keyFile": "/path/to/private.key"
+          }
+        ],
+        "alpn": ["http/1.1"]         // WebSocket 基于 HTTP/1.1
+      },
+
+      "wsSettings": {
+        "path": "/trojanws",         // WebSocket 路径，客户端需一致
+        "headers": {
+          "Host": "your-domain.com"  // 伪装 Host 头，可选
+        }
+      }
+    },
+
+    "sniffing": {
+      "enabled": true,
+      "destOverride": ["http", "tls", "quic"],
+      "routeOnly": false
+    }
+  }
+```
+
+前置 Nginx 处理 TLS 的版本
+
+```
+location /trojanws {
+    proxy_redirect off;
+    proxy_pass http://127.0.0.1:2000;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
 }
 ```
+
+
+
+```json
+ {
+    "tag": "trojan-ws-in",
+    "listen": "127.0.0.1",           // 只监听本地
+    "port": 2000,                    // 内部端口，Nginx 反代到这里
+    "protocol": "trojan",
+
+    "settings": {
+      "clients": [
+        {
+          "password": "12345678910",
+          "email": "user1",
+          "level": 0
+        }
+      ]
+    },
+
+    "streamSettings": {
+      "network": "ws",
+      "security": "none",            // TLS 交给 Nginx
+      "wsSettings": {
+        "path": "/trojanws"
+      }
+    },
+
+    "sniffing": {
+      "enabled": true,
+      "destOverride": ["http", "tls", "quic"],
+      "routeOnly": false
+    }
+  }
+```
+
+
 
 VMess 协议
 
+vmess+ws+tls
+
 ```json
-"settings": {
-  "clients": [
-    {
-      "id": "a3482e88-686a-4a58-8126-99c9df64b7bf", //UUID，相当于密码
-      "alterId": 0, //额外 ID 数量，现在都填 0（启用 VMessAEAD 加密，更安全）
-      "email": "user1",
-      "level": 0
+{
+    "tag": "vmess-in",
+    "listen": "0.0.0.0",
+    "port": 443,
+    "protocol": "vmess",
+
+    "settings": {
+      "clients": [
+        {
+          "id": "a3482e88-686a-4a58-8126-99c9df64b7bf",  // UUID，相当于密码
+          "alterId": 0,    // 额外 ID 数量，现在都填 0（启用 VMessAEAD 加密，更安全）
+                           // 非 0 值是旧版兼容，不推荐
+          "email": "user1", // 用户标识，用于日志和流量统计
+          "level": 0        // 用户等级，对应 policy 中的级别
+        }
+      ]
+      // VMess 没有 decryption 字段（那是 VLESS 专有）
+      // VMess 没有 fallbacks（仅 VLESS 和 Trojan 支持）
+      // VMess 自带加密，不需要 flow 字段
+    },
+
+    "streamSettings": {
+      "network": "ws",              // 传输方式: tcp, ws, grpc, xhttp 等
+                                     // VMess 常用 ws（可过 CDN）或 tcp
+      "security": "tls",            // 加密: tls / none
+                                     // VMess 不支持 REALITY（那是 VLESS 专属）
+                                     // 前置 Nginx 处理 TLS 时填 "none"
+
+      "tlsSettings": {
+        "certificates": [
+          {
+            "certificateFile": "/path/to/fullchain.crt",
+            "keyFile": "/path/to/private.key"
+          }
+        ],
+        "alpn": ["http/1.1"]
+      },
+
+      "wsSettings": {
+        "path": "/vmws",            // WebSocket 路径，客户端需一致
+        "headers": {
+          "Host": "your-domain.com"
+        }
+      }
+    },
+
+    "sniffing": {
+      "enabled": true,
+      "destOverride": ["http", "tls", "quic"],
+      "routeOnly": false
     }
-  ]
-}
+  }
 ```
+
+vmess+tcp+tls
+
+```json
+{
+    "tag": "vmess-in",
+    "listen": "0.0.0.0",
+    "port": 443,
+    "protocol": "vmess",
+
+    "settings": {
+      "clients": [
+        {
+          "id": "a3482e88-686a-4a58-8126-99c9df64b7bf",  // UUID，相当于密码
+          "alterId": 0,    // 额外 ID 数量，现在都填 0（启用 VMessAEAD 加密，更安全）
+                           // 非 0 值是旧版兼容，不推荐
+          "email": "user1", // 用户标识，用于日志和流量统计
+          "level": 0        // 用户等级，对应 policy 中的级别
+        }
+      ]
+      // VMess 没有 decryption 字段（那是 VLESS 专有）
+      // VMess 没有 fallbacks（仅 VLESS 和 Trojan 支持）
+      // VMess 自带加密，不需要 flow 字段
+    },
+
+    "streamSettings": {
+    "network": "tcp",
+    "security": "tls",
+    "tlsSettings": {
+    "certificates": [
+          {
+            "certificateFile": "/path/to/fullchain.crt",
+            "keyFile": "/path/to/private.key"
+          }
+       ]
+     }
+   },
+
+    "sniffing": {
+      "enabled": true,
+      "destOverride": ["http", "tls", "quic"],
+      "routeOnly": false
+    }
+  }
+```
+
+
 
 VLESS 协议
 
+vless+ws+tls
+
 ```json
-"settings": {
-  "clients": [
-    {
-      "id": "a3482e88-686a-4a58-8126-99c9df64b7bf", //UUID
-      "email": "user1",
-      "level": 0,
-      "flow": "xtls-rprx-vision" //flow → 流控模式，配合 REALITY 时常用 "xtls-rprx-vision",streamSettings.network是tcp时才设置
+"inbounds": [
+  {
+    "tag": "vless-ws-in",
+    "listen": "0.0.0.0",
+    "port": 443,
+    "protocol": "vless",
+
+    "settings": {
+      "clients": [
+        {
+          "id": "a3482e88-686a-4a58-8126-99c9df64b7bf",  // UUID，客户端需一致
+          "email": "user1",
+          "level": 0
+          // 注意：WebSocket 传输不能设置 flow 字段
+          // flow 仅在 network 为 tcp 时使用
+        }
+      ],
+      "decryption": "none"          // VLESS 专有，必填
+      // WebSocket 传输不支持 fallbacks
+      // fallbacks 要求入站必须是 TCP+TLS
+    },
+
+    "streamSettings": {
+      "network": "ws",              // 传输方式改为 WebSocket
+      "security": "tls",            // WebSocket 通常搭配 TLS
+                                     // 也可以用 "none"，由前置 Nginx/Caddy 处理 TLS
+
+      "tlsSettings": {
+        "certificates": [
+          {
+            "certificateFile": "/path/to/fullchain.crt",  // 证书路径
+            "keyFile": "/path/to/private.key"              // 私钥路径
+          }
+        ],
+        "alpn": ["http/1.1"]         // WebSocket 基于 HTTP/1.1，不要加 h2
+      },
+
+      "wsSettings": {
+        "path": "/myws",            // WebSocket 路径，客户端需一致
+                                     // 建议用随机字符串，如 "/a1b2c3"
+        "headers": {
+          "Host": "your-domain.com"  // 伪装 Host 头，可选
+        }
+      }
+    },
+
+    "sniffing": {
+      "enabled": true,
+      "destOverride": ["http", "tls", "quic"],
+      "routeOnly": false
     }
-  ],
-  "decryption": "none",
-  "fallbacks": [
-    { "dest": 80 }
-  ]
+  }
+]
+```
+
+vless+tcp+reality
+
+```json
+{
+    "tag": "vless-in",
+    "listen": "0.0.0.0",
+    "port": 443,
+    "protocol": "vless",
+
+    "settings": {
+      "clients": [
+        {
+          "id": "a3482e88-686a-4a58-8126-99c9df64b7bf",  // UUID，客户端需一致
+          "email": "user1",          // 用户标识，用于日志和流量统计
+          //"level": 0,               // 用户等级，对应 policy 中的级别
+          "flow": "xtls-rprx-vision" // 流控模式，仅 network 为 tcp 时设置
+        }
+      ],
+      "decryption": "none",          // VLESS 专有，必填，目前只能填 "none"
+
+      "fallbacks": [
+        {
+          "alpn": "h2",                  // 匹配 HTTP/2 流量
+          "dest": "/dev/shm/h2c.sock",   // 转发到 Unix socket
+          "xver": 1                      // 发送 PROXY protocol v1
+        },
+        {
+          "path": "/wspath",       // 匹配 HTTP 路径，分流 WebSocket 等流量
+          "dest": 2000,            // 转发到本机 2000 端口
+          "xver": 1
+        },
+        {
+          "name": "blog.example.com",  // 匹配 TLS SNI，按域名分流
+          "dest": 3000,
+          "xver": 1
+        },
+        {
+          "dest": 80               // 默认兜底回落，未匹配的流量转发到 80 端口
+        }
+      ]
+    },
+
+    "streamSettings": {
+      "network": "tcp",            // 底层传输，使用 flow 时必须为 tcp
+      "security": "reality",       // 加密方式: reality / tls / none
+
+      "realitySettings": {
+        "show": false,
+        "dest": "www.example.com:443",   // 伪装目标，非法请求转发到这里
+        "xver": 0,
+        "serverNames": ["www.example.com"],  // 客户端可用的 SNI
+        "privateKey": "your-private-key",    // xray x25519 生成
+        "maxTimeDiff": 0,
+        "shortIds": ["", "0123456789abcdef"]
+      }
+    },
+
+    "sniffing": {
+      "enabled": true,
+      "destOverride": ["http", "tls", "quic"],
+      "routeOnly": false
+    }
+  }
+```
+
+前置 Nginx/Caddy 处理 TLS 的场景
+
+```
+location /myws {
+    proxy_redirect off;
+    proxy_pass http://127.0.0.1:2000;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
 }
 ```
+
+nginx+vless+ws
+
+```json
+{
+    "tag": "vless-ws-in",
+    "listen": "127.0.0.1",         // 只监听本地，由 Nginx 转发过来
+    "port": 2000,                  // 内部端口，Nginx 反代到这里
+    "protocol": "vless",
+
+    "settings": {
+      "clients": [
+        {
+          "id": "a3482e88-686a-4a58-8126-99c9df64b7bf",
+          "email": "user1",
+          "level": 0
+        }
+      ],
+      "decryption": "none"
+    },
+
+    "streamSettings": {
+      "network": "ws",
+      "security": "none",           // TLS 由 Nginx 处理，这里不需要
+      "wsSettings": {
+        "path": "/myws"
+      }
+    },
+
+    "sniffing": {
+      "enabled": true,
+      "destOverride": ["http", "tls", "quic"],
+      "routeOnly": false
+    }
+  }
+```
+
+
 
 Shadowsocks 协议
 
 ```json
-"settings": {
-  "clients": [
-    {
-      "password": "mypassword",  
-      // 加密方式，推荐 "2022-blake3-aes-128-gcm" 或 "2022-blake3-chacha20-poly1305"
-      "method": "2022-blake3-aes-128-gcm",
-      "email": "user1"
-    }
-  ],
-  "network": "tcp,udp" //支持的网络类型，"tcp,udp" 表示都支持
-}
+{
+      "tag": "ss-in",
+      "listen": "0.0.0.0",
+      "port": 443,
+      "protocol": "shadowsocks",
+      "settings": {
+        "clients": [
+          {
+             // 加密方式，推荐 "2022-blake3-aes-128-gcm" 或 "2022-blake3-chacha20-poly1305"
+            "password": "base64-encoded-key-here", 
+            "method": "2022-blake3-aes-128-gcm",
+            "email": "user1"
+          },
+          {
+            "password": "another-base64-key-here",
+            "method": "2022-blake3-aes-128-gcm",
+            "email": "user2"
+          }
+        ],
+        "network": "tcp,udp" // //支持的网络类型，"tcp,udp" 表示都支持
+      },
+      "sniffing": {
+        "enabled": true,
+        "destOverride": ["http", "tls", "quic"] 
+      }
+  }
 ```
 
-Dokodemo-door（任意门）
-
-用于透明代理或端口转发
+http
 
 ```json
-"settings": {
-  "address": "1.1.1.1", // 转发目标地址
-  "port": 53,//转发目标端口
-  "network": "tcp,udp",
-  "followRedirect": true // 是否跟随系统重定向（透明代理时设 true）
-}
+"inbounds": [
+  // ============ 基础用法：本地 HTTP 代理 ============
+  {
+    "tag": "http-in",
+    "listen": "127.0.0.1",            // 监听地址，本地使用填 127.0.0.1
+                                       // 局域网共享填 0.0.0.0（注意安全）
+    "port": 8080,                     // 监听端口
+    "protocol": "http",               // HTTP 代理协议
+
+    "settings": {
+      "timeout": 300,                 // 连接超时时间（秒），默认 300
+                                       // 0 表示不超时
+
+      "accounts": [                   // 用户认证，不填则不需要认证
+        {
+          "user": "myuser",           // 用户名
+          "pass": "mypassword"        // 密码
+        },
+        {
+          "user": "user2",
+          "pass": "password2"
+        }
+      ],
+
+      "allowTransparent": false,      // 是否允许透明代理
+                                       // true: 转发所有 HTTP 请求（包括非代理请求）
+                                       // false: 只处理标准的 HTTP 代理请求（默认）
+      "userLevel": 0                  // 用户等级，对应 policy
+    },
+
+    "sniffing": {
+      "enabled": true,
+      "destOverride": ["http", "tls", "quic"],
+      "routeOnly": false
+    }
+  },
+
+  // ============ 局域网共享代理 ============
+  {
+    "tag": "http-lan",
+    "listen": "0.0.0.0",              // 监听所有网卡，局域网设备可访问
+    "port": 8888,
+    "protocol": "http",
+
+    "settings": {
+      "accounts": [                   // 局域网共享建议加密码
+        {
+          "user": "admin",
+          "pass": "strongpassword"
+        }
+      ],
+      "allowTransparent": false,
+      "userLevel": 0
+    },
+
+    "sniffing": {
+      "enabled": true,
+      "destOverride": ["http", "tls"]
+    }
+  },
+
+  // ============ 透明 HTTP 代理 ============
+  {
+    "tag": "http-transparent",
+    "listen": "127.0.0.1",
+    "port": 8181,
+    "protocol": "http",
+
+    "settings": {
+      "allowTransparent": true,       // 开启透明代理模式
+                                       // 可以处理非标准代理请求
+                                       // 通常配合反向代理或 fallbacks 使用
+      "userLevel": 0
+    }
+  }
+]
 ```
 
 Socks 入站
 
 ```json
-"settings": {
-  "auth": "password",// auth → "noauth" 免认证 / "password" 需要认证
-  "accounts": [
-    {
-      "user": "admin",
-      "pass": "123456"
-    }
-  ],
-  "udp": true, //udp → 是否支持 UDP
-  "ip": "127.0.0.1" //ip → UDP 回传时用的 IP
-}
-```
-
-HTTP 入站
-
-```json
-"settings": {
-  "accounts": [
-    {
-      "user": "admin",
-      "pass": "123456"
-    }
-  ],
-  "allowTransparent": false
-}
-```
-
-
-
-端口转发和透明代理dokodemo-door 
-
-```json
 {
-  "inbounds": [
-    {
-      "port": 12345,//监听本机的端口
-      "protocol": "dokodemo-door",
+      "tag": "socks-in",
+      "listen": "127.0.0.1",
+      "port": 1080,
+      "protocol": "socks",
       "settings": {
-        "address": "1.2.3.4", // 转发目标地址,followRedirect:false
-        "port": 443, // 转发目标端口,followRedirect:false
-        "network": "tcp,udp", // 支持的网络类型
-        //false:表示端口转发，结合使用address:port 。true：透明代理
-        "followRedirect": false 
+        "auth": "password", //
+        "accounts": [
+          {
+            "user": "myuser",
+            "pass": "mypassword123"
+          }
+        ],
+        "udp": true,
+        "ip": "127.0.0.1",
+        "userLevel": 0
+      },
+      "sniffing": {
+        "enabled": true,
+        "destOverride": ["http", "tls", "quic"],
+        "routeOnly": false
       }
     }
-  ]
-}
+```
+
+
+
+Dokodemo-door（任意门）
+
+透明代理（最常用）
+
+```json
+// ============ 用法一：透明代理（最常用） ============
+  {
+    "tag": "tproxy-in",
+    "listen": "0.0.0.0",
+    "port": 12345,                   // 透明代理监听端口
+    "protocol": "dokodemo-door",     // 任意门协议，接收任意指定流量并转发
+
+    "settings": {
+      "network": "tcp,udp",          // 接收 TCP 和 UDP 流量
+      "followRedirect": true         // 跟随系统重定向，透明代理必须设 true
+                                      // 此时 address 和 port 可以不填
+                                      // 目标地址由 iptables/nftables 重定向决定
+    },
+
+    "streamSettings": {
+      "sockopt": {
+        "tproxy": "tproxy"           // 透明代理模式: tproxy / redirect
+                                      // tproxy: 支持 TCP+UDP，需要 root 权限
+                                      // redirect: 仅支持 TCP
+      }
+    },
+
+    "sniffing": {
+      "enabled": true,
+      "destOverride": ["http", "tls", "quic"],
+      "routeOnly": false
+    }
+  }
+```
+
+端口转发
+
+```json
+ // ============ 用法二：端口转发 ============
+  {
+    "tag": "forward-dns",
+    "listen": "0.0.0.0",
+    "port": 5353,                    // 本机监听端口
+    "protocol": "dokodemo-door",
+
+    "settings": {
+      "address": "1.1.1.1",         // 转发目标地址
+                                      // 所有进入此端口的流量都转发到这个地址
+      "port": 53,                    // 转发目标端口
+      "network": "tcp,udp",         // 支持的网络类型
+      "followRedirect": false        // 固定转发，不跟随系统重定向
+    },
+
+    "sniffing": {
+      "enabled": false               // DNS 转发一般不需要嗅探
+    }
+  }
+```
+
+接收 PROXY protocol 
+
+```json
+// ============ 用法三：接收 PROXY protocol ============
+  // 配合 VLESS/Trojan fallbacks 使用
+  {
+    "tag": "fallback-target",
+    "listen": "127.0.0.1",
+    "port": 8080,
+    "protocol": "dokodemo-door",
+
+    "settings": {
+      "address": "127.0.0.1",
+      "port": 80,                    // 最终转发到本机 Nginx
+      "network": "tcp"
+    },
+
+    "streamSettings": {
+      "sockopt": {
+        "acceptProxyProtocol": true  // 接收 PROXY protocol
+                                      // 可以获取客户端真实 IP
+                                      // 配合 fallbacks 的 xver: 1 使用
+      }
+    }
+  }
+```
+
+本地端口映射
+
+```json
+// ============ 用法四：本地端口映射 ============
+  // 把远程服务映射到本地
+  {
+    "tag": "port-map",
+    "listen": "127.0.0.1",           // 只允许本机访问
+    "port": 3306,                    // 本机监听端口
+    "protocol": "dokodemo-door",
+
+    "settings": {
+      "address": "remote-db.example.com",  // 远程服务器地址
+      "port": 3306,                        // 远程端口
+      "network": "tcp"
+    }
+  }
 ```
 
 
@@ -342,20 +925,32 @@ iptables -t nat -A PREROUTING -p tcp -j REDIRECT --to-ports 12345
 
 #### fallbacks 
 
-回落参数详解
+Fallbacks 只支持 **VLESS** 和 **Trojan** 两种协议，回落参数详解
+
+回落匹配的优先级是：先匹配 `name`（SNI），再匹配 `alpn`，最后匹配 `path`
 
 ```json
 "fallbacks": [
-    //路径是 /ws 的请求 → 转到 8080
+    
+    {
+        // name：按 TLS SNI 匹配
+        "name": "blog.example.com",
+        "dest": 8001,
+        "xver": 1
+    },
    { 
-       "path": "/ws", 
-       "dest": 8080 
-   },
-    // 客户端用 HTTP/2 连接的 → 转到 8443
-   { 
+       // alpn：按 TLS ALPN 协商结果匹配，如 "h2"、"http/1.1"
+       // // 客户端用 HTTP/2 连接的 → 转到 8443
        "alpn": "h2", 
        "dest": 8443
    },
+   { 
+       // path：按 HTTP 请求路径匹配，必须以 / 开头
+       // 当HTTP请求路径是/ws时，将流量回落的到8080端口 
+       "path": "/ws", 
+       "dest": 8080 
+   },
+    
    // 回落到 80 端口,xver — 传不传来源 IP,
    //默认后端看到的来源 IP 是 127.0.0.1，看不到真实客户端 IP
    //0 → 不传（默认）
@@ -590,6 +1185,10 @@ httpupgrade
 | HTTP/2      | TCP  | ❌        | ✅        | 必须     | 原生多路复用             |
 | QUIC        | UDP  | ❌        | ❌        | 必须     | 低延迟                   |
 | mKCP        | UDP  | ❌        | ❌        | 不需要   | 抗丢包，费流量           |
+
+
+
+
 
 ### sniffing
 

@@ -57,9 +57,8 @@ class RootModel(BaseModel):
 
 client =AsyncClient(base_url="https://ilinkai.weixin.qq.com",timeout=180)
 class WeiXinClawBot():
-    def __init__(self):
-        # 整个会话使用同一个 UIN
-        self._uin = base64.b64encode(str(random_uint32()).encode()).decode()
+ 
+        
 
     async def get_bot_qrcode(self)->BotQrcode:
         response = await client.get("/ilink/bot/get_bot_qrcode?bot_type=3")
@@ -67,14 +66,16 @@ class WeiXinClawBot():
         return BotQrcode(**botQrcode)
 
     async def get_qrcode_status(self,qrcode:str):
-
+        """等待用户扫码登录"""
         while True:
             response = await client.get("/ilink/bot/get_qrcode_status?qrcode=" + qrcode)
             if response.json()["status"] == "confirmed":
+                # 需要添加保存QrcodeStatus
                 return QrcodeStatus(**response.json())
             await asyncio.sleep(1)
 
     async def getupdates(self,bot_token):
+        """长轮询，从ilink服务器中获取从微信ClawBot发送的消息"""
         headers = {
             "Content-Type": "application/json",
             "AuthorizationType": "ilink_bot_token",
@@ -87,6 +88,7 @@ class WeiXinClawBot():
                 response = await client.post("/ilink/bot/getupdates",json={"get_updates_buf":get_updates_buf,"base_info": {"channel_version": "1.0.2"}},headers=headers)
                 root_model = RootModel(**response.json())
                 get_updates_buf = root_model.get_updates_buf
+                # 需要添加保存get_updates_buf
                 yield root_model.msgs
                 await asyncio.sleep(5)
 
@@ -102,6 +104,7 @@ class WeiXinClawBot():
             await asyncio.sleep(1)
 
     async def getconfig(self, bot_token: str, ilink_user_id: str, context_token: str):
+        """获取微信对方正在输入的设置"""
         headers = {
             "Content-Type": "application/json",
             "AuthorizationType": "ilink_bot_token",
@@ -116,7 +119,7 @@ class WeiXinClawBot():
         return response.json()
 
     async def sendtyping(self, bot_token: str, ilink_user_id: str, typing_ticket: str, status: int = 1):
-        """status=1 开始输入, status=2 取消输入"""
+        """微信对方正在输入的设置，status=1 显示对方正在输入, status=2 取消对方正在输入"""
         headers = {
             "Content-Type": "application/json",
             "AuthorizationType": "ilink_bot_token",
@@ -174,7 +177,7 @@ async def main():
             typing_ticket = config["typing_ticket"]
             await weiXinClawBot.sendtyping(qrcode_status.bot_token,msg[0].from_user_id,typing_ticket,status=1)
             await asyncio.sleep(60)
-            await weiXinClawBot.sendmessage(qrcode_status.bot_token,msg[0],"ok")
+            await weiXinClawBot.sendmessage(qrcode_status.bot_token,msg[0],"发送给微信clawBot的消息")
             await weiXinClawBot.sendtyping(qrcode_status.bot_token, msg[0].from_user_id, typing_ticket, status=2)
         else:
             print("没有消息")

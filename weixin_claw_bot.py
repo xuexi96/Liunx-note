@@ -1,11 +1,17 @@
 import time
-from typing import Optional, List
+from typing import Optional, List,Union
 import httpx
 from httpx import AsyncClient
 from  pydantic import BaseModel
 import base64
 import random
 import redis.asyncio as aioredis
+import base64
+from Crypto.Cipher import AES
+from Crypto.Util.Padding import pad, unpad
+
+from test.demo3 import agent
+
 
 class RedisClient:
     _pool: aioredis.ConnectionPool = None
@@ -62,13 +68,16 @@ class Media(BaseModel):
     full_url:str
 
 class VoiceItem(BaseModel):
+    """音频"""
     media:Media
     bits_per_sample:int
     encode_type:int
     playtime:int
     sample_rate:int
     text:str
+
 class ImageItem(BaseModel):
+    """ 图片 """
     aeskey:str
     hd_size:int
     media:Media
@@ -83,6 +92,7 @@ class ThumbMedia(BaseModel):
     full_url:str
 
 class VideoItem(BaseModel):
+    """ 视频 """
     media:Media
     play_length:int
     thumb_height:int
@@ -93,6 +103,7 @@ class VideoItem(BaseModel):
     video_size:int
 
 class FileItem(BaseModel):
+    """ 文件 """
     file_name:str
     len:str
     md5:str
@@ -136,6 +147,40 @@ class RootModel(BaseModel):
 
 client =AsyncClient(base_url="https://ilinkai.weixin.qq.com",timeout=180)
 class WeiXinClawBot():
+
+    def decrypt(self,ciphertext: bytes, key: bytes) -> bytes:
+        return unpad(AES.new(key, AES.MODE_ECB).decrypt(ciphertext), 16)
+
+    def encrypt(self,plaintext: bytes, key: bytes) -> bytes:
+        return AES.new(key, AES.MODE_ECB).encrypt(pad(plaintext, 16))
+
+    def parse_key(self,s: str) -> bytes:
+        """iLink 的 aes_key 是 base64(hex_string) 的双层编码。"""
+        raw = base64.b64decode(s)
+        if len(raw) == 16:
+            return raw
+        return bytes.fromhex(raw.decode())
+
+    async def download_media(self,item:Union[VoiceItem,ImageItem,VideoItem,FileItem]):
+        media = item.media
+        file_type =None
+        file_name =None
+        if isinstance(item,VoiceItem):
+            file_type ="voice"
+        elif isinstance(item,ImageItem):
+            file_type = "image"
+        elif isinstance(item,VideoItem):
+            file_type ="video"
+        elif isinstance(item,FileItem):
+            file_type ="file"
+            file_name = item.file_name
+
+        async with httpx.AsyncClient(timeout=60) as c:
+            r = await c.get(media.full_url)
+            r.raise_for_status()
+        return (file_name,file_type,self.decrypt(r.content, self.parse_key(media.aes_key)))
+
+
 
     def __init__(self):
         self._bot_token:Optional[str] = None
@@ -265,6 +310,25 @@ class WeiXinClawBot():
 
 weiXinClawBot = WeiXinClawBot()
 
+async def send_text(weiXinClawBot:WeiXinClawBot,msg,text):
+    print("消息："+str(text))
+    a_text =await agent(text)
+    print("agent回复-----")
+    print(a_text)
+    print("----")
+    send_msg = Message(**{
+        "to_user_id": msg[0].from_user_id,
+        "client_id": f"py-{int(time.time() * 1000)}",
+        "message_type": 2,
+        "message_state": 2,
+        "context_token": msg[0].context_token,
+        "item_list": [
+            {"type": 1, "text_item": {"text": a_text}}
+        ]
+    })
+    print("发送消息")
+    await weiXinClawBot.sendmessage(send_msg)
+
 async def main():
     await RedisClient.init("127.0.0.1")
     client = await RedisClient.get_client()
@@ -304,24 +368,23 @@ async def main():
                     print("发送语音")
 
                 if msg[0].item_list[0].text_item is not None:
-                    print("发送文本")
+                    config = await weiXinClawBot.getconfig(msg[0].from_user_id, msg[0].context_token)
+                    typing_ticket = config["typing_ticket"]
+                    await weiXinClawBot.sendtyping(msg[0].from_user_id, typing_ticket, status=1)
+                    # send_msg = Message(**{
+                    #     "to_user_id": msg[0].from_user_id,
+                    #     "client_id": f"py-{int(time.time() * 1000)}",
+                    #     "message_type": 2,
+                    #     "message_state": 2,
+                    #     "context_token": msg[0].context_token,
+                    #     "item_list": [
+                    #         {"type": 1, "text_item": {"text": "ok"}}
+                    #     ]
+                    # })
+                    # await weiXinClawBot.sendmessage(send_msg)
+                    asyncio.create_task(send_text(weiXinClawBot,msg,msg[0].item_list[0].text_item.text))
+                    await weiXinClawBot.sendtyping(msg[0].from_user_id, typing_ticket, status=2)
 
-
-            config = await weiXinClawBot.getconfig(msg[0].from_user_id,msg[0].context_token)
-            typing_ticket = config["typing_ticket"]
-            await weiXinClawBot.sendtyping(msg[0].from_user_id,typing_ticket,status=1)
-            send_msg = Message(**{
-                "to_user_id":msg[0].from_user_id,
-                "client_id": f"py-{int(time.time()*1000)}",
-                "message_type": 2,
-                "message_state": 2,
-                "context_token":msg[0].context_token ,
-                "item_list": [
-                    {"type": 1, "text_item": {"text": "ok"}}
-                ]
-            })
-            await weiXinClawBot.sendmessage(send_msg)
-            await weiXinClawBot.sendtyping(msg[0].from_user_id, typing_ticket, status=2)
         else:
             print("没有消息")
 

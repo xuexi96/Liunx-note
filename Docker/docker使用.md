@@ -241,3 +241,60 @@ docker start 容器名称或id
 ```bash
 docker rm 容器名称或id
 ```
+
+
+
+# 让局域网内主机可以访问到宿主机里面的Docker容器
+1、创建Docker Bridge 网络
+```bash
+docker network create \
+  --driver bridge \
+  --subnet 172.26.0.0/24 \
+  -o com.docker.network.bridge.gateway_mode_ipv4=routed \
+  agent-routed
+```
+创建一个名为 agent-routed 的 Docker Bridge 网络，指定 IP 网段为 172.26.0.0/24，并启用 IPv4 Routed（路由）模式
+
+2、创建容器,通过--ip指定容器的ip，-p指定端口，指定端口外面只能访问指定的端口
+```bash
+sudo docker run -d \
+  --runtime=sysbox-runc \
+  --name agent-user-001 \
+  --hostname agent-user-001 \
+  --network agent-routed \
+  --restart unless-stopped \
+  --ip 172.26.0.2 \
+  -p 0.0.0.0::9080 \
+  ubuntu24-systemd:1.0
+
+```
+
+
+软路由R2S 网关(192.168.2.1)
+在软路由中添加临时路由，目标地址：172.26.0.0/24 在这个网段时，路由到192.168.2.204主机
+```bash
+ip route add 172.26.0.0/24 via 192.168.2.204
+```
+
+设置永久的路由
+```bash
+uci add network route
+uci set network.@route[-1].interface='lan'
+uci set network.@route[-1].target='172.26.0.0/24'
+uci set network.@route[-1].gateway='192.168.2.204'
+uci commit network
+/etc/init.d/network reload
+```
+
+宿主机ip地址(192.168.1.204)
+检查IP 转发
+```bash
+sysctl net.ipv4.ip_forward
+```
+net.ipv4.ip_forward = 1
+
+如果是0,通过下面的命令开启转发
+```bash
+echo 'net.ipv4.ip_forward=1' | sudo tee /etc/sysctl.d/99-ip-forward.conf
+sudo sysctl --system
+```

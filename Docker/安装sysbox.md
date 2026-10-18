@@ -66,7 +66,6 @@ FROM ubuntu:24.04
 # 禁止 apt 安装时弹出交互界面
 ENV DEBIAN_FRONTEND=noninteractive
 
-# 安装系统工具、Python、Node.js、Git
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         systemd \
@@ -78,6 +77,7 @@ RUN apt-get update && \
         vim \
         nano \
         git \
+        gnupg \
         iproute2 \
         iputils-ping \
         net-tools \
@@ -90,10 +90,16 @@ RUN apt-get update && \
         python3-venv \
         python3-dev \
         python-is-python3 \
-        nodejs \
-        npm \
         build-essential && \
-    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# 添加 NodeSource Node.js 24 软件源
+RUN curl -fsSL \
+    https://deb.nodesource.com/setup_24.x \
+    -o /tmp/nodesource_setup.sh && \
+    bash /tmp/nodesource_setup.sh && \
+    apt-get install -y --no-install-recommends nodejs && \
+    rm -f /tmp/nodesource_setup.sh && \
     rm -rf /var/lib/apt/lists/*
 
 # 创建 SSH 运行目录

@@ -30,6 +30,7 @@ daemon.json的内容
     "https://docker.xuanyuan.me"
   ]
 }
+
 ```
 
 重启Docker服务
@@ -244,8 +245,8 @@ docker rm 容器名称或id
 
 
 
-# 让局域网内主机可以访问到宿主机里面的Docker容器
-1、创建Docker Bridge 网络
+# 让局域网内主机可以访问到宿主机里面的Docker容器（宿主机所在的网络，网关可以设置）
+1、创建Docker Bridge 网络(在宿主机上运行)
 ```bash
 docker network create \
   --driver bridge \
@@ -254,6 +255,7 @@ docker network create \
   agent-routed
 ```
 创建一个名为 agent-routed 的 Docker Bridge 网络，指定 IP 网段为 172.26.0.0/24，并启用 IPv4 Routed（路由）模式
+
 
 2、创建容器,通过--ip指定容器的ip，-p指定端口，指定端口外面只能访问指定的端口
 ```bash
@@ -269,7 +271,22 @@ sudo docker run -d \
 
 ```
 
+3、设置宿主机IP转发
+宿主机ip地址(192.168.1.204)
+检查IP 转发
+```bash
+sysctl net.ipv4.ip_forward
+```
+net.ipv4.ip_forward = 1
 
+如果是0,通过下面的命令开启转发
+```bash
+echo 'net.ipv4.ip_forward=1' | sudo tee /etc/sysctl.d/99-ip-forward.conf
+sudo sysctl --system
+```
+
+
+4、设置网关
 软路由R2S 网关(192.168.2.1)
 在软路由中添加临时路由，目标地址：172.26.0.0/24 在这个网段时，路由到192.168.2.204主机
 ```bash
@@ -286,6 +303,43 @@ uci commit network
 /etc/init.d/network reload
 ```
 
+
+
+# 让局域网内主机可以访问到宿主机里面的Docker容器（宿主机所在的网络，不能网关可以设置）
+1、创建Docker Bridge 网络(在宿主机上运行)
+```bash
+docker network create \
+  --driver bridge \
+  --subnet 172.26.0.0/24 \
+  -o com.docker.network.bridge.gateway_mode_ipv4=routed \
+  agent-routed
+```
+创建一个名为 agent-routed 的 Docker Bridge 网络，指定 IP 网段为 172.26.0.0/24，并启用 IPv4 Routed（路由）模式
+注意：Docker 使用了 gateway_mode_ipv4=routed，不会自动进行 SNAT（源地址转换）,所以在容器中ping www.baidu.com ping不通
+
+
+2、设置SNAT，解决Doker的SNAT（源地址转换）问题
+在宿主机上运行，获取出口网卡
+```bash
+ip -4 route get 223.5.5.5
+```
+223.5.5.5 via 192.168.119.2 dev ens33 src 192.168.119.128 uid 1000
+    cache
+在宿主机上添加规则,添加 MASQUERADE 规则
+```bash
+# # 为容器网段添加出站 SNAT
+sudo iptables -t nat -A POSTROUTING \
+  -s 172.26.0.0/24 \
+  -o ens33 \
+  -j MASQUERADE
+```
+-t nat	操作 NAT 表
+-A POSTROUTING	在出站路由之后处理数据包
+-s 172.26.0.0/24	只匹配这个容器网段
+-o ens33	匹配从 ens33 发出的流量
+-j MASQUERADE	将源 IP 转换为 Ubuntu 出口 IP
+
+3、设置宿主机IP转发
 宿主机ip地址(192.168.1.204)
 检查IP 转发
 ```bash
@@ -297,4 +351,23 @@ net.ipv4.ip_forward = 1
 ```bash
 echo 'net.ipv4.ip_forward=1' | sudo tee /etc/sysctl.d/99-ip-forward.conf
 sudo sysctl --system
+```
+
+4、创建容器,通过--ip指定容器的ip，-p指定端口，指定端口外面只能访问指定的端口
+```bash
+sudo docker run -d \
+  --runtime=sysbox-runc \
+  --name agent-user-001 \
+  --hostname agent-user-001 \
+  --network agent-routed \
+  --restart unless-stopped \
+  --ip 172.26.0.2 \
+  -p 0.0.0.0::9080 \
+  ubuntu24-systemd:1.0
+
+```
+
+5、设置访问主机的路由
+```bash
+ip route add 172.26.0.0/24 via 192.168.2.204
 ```

@@ -32,10 +32,21 @@ vim ~/.ssh/authorized_keys # 将公钥复制到这个文件
 chmod 600 ~/.ssh/authorized_keys
 ```
 
+在Windows运行
+```powershell
+ssh vm1@192.168.1.61
+```
+
 
 # 连接docker容器
 
-需要安装pip install docker
+需要安装
+
+```bash
+pip install paramiko
+pip install docker
+```
+代码在Windows运行
 ```python
 import docker
 

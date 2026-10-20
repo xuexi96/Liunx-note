@@ -303,6 +303,12 @@ uci commit network
 /etc/init.d/network reload
 ```
 
+测试
+在容器中运行启动 Python HTTP 文件服务器
+```bash
+python3 -m http.server 9080 --bind 0.0.0.0
+```
+在外面访问：http://172.26.0.2:9080
 
 
 # 让局域网内主机可以访问到宿主机里面的Docker容器（宿主机所在的网络，不能网关可以设置）

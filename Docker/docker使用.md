@@ -146,10 +146,12 @@ docker network create agent-net #agent-net是网络名称，自己设定
 #或
 docker network create --driver bridge agent-net  # 使用 Bridge（桥接）网络驱动
 ```
+
 查看网络详细信息
 ```bash
 docker network inspect agent-net
 ```	
+
 将已有容器加入网络
 ```bash
 docker network connect agent-net agent-001
@@ -256,6 +258,21 @@ docker network create \
 ```
 创建一个名为 agent-routed 的 Docker Bridge 网络，指定 IP 网段为 172.26.0.0/24，并启用 IPv4 Routed（路由）模式
 
+
+
+在宿主机上添加路由(docker 默认会操作，如果docker容器网络崩了问题，按下面操作)
+查看创建的网络
+```bash
+ip -br addr show type bridge
+```
+ip -br addr show type bridge
+docker0          DOWN
+br-87974d43e67e  UP             172.26.0.1/24 fe80::d414:ccff:fea1:a7be/64
+
+
+```bash
+sudo ip addr add 172.26.0.1/24 dev br-87974d43e67e
+```
 
 2、创建容器,通过--ip指定容器的ip，-p指定端口，指定端口外面只能访问指定的端口
 ```bash

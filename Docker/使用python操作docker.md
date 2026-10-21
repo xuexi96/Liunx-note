@@ -217,3 +217,26 @@ finally:
     client.close()
 
 ```
+
+查看容器列表
+```python
+import docker
+
+client = docker.DockerClient(
+    base_url="ssh://vm1@192.168.2.61",
+  
+)
+
+try:
+    containers = client.containers.list(all=True)
+
+    for container in containers:
+        print({
+            "id": container.short_id, # 容器id
+            "name": container.name, # 容器名称
+            "status": container.status # 容器状态
+        })
+finally:
+    client.close()
+
+```

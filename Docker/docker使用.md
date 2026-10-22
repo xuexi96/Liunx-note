@@ -186,12 +186,35 @@ sudo docker inspect \
 
 创建容器并运行容器
 ```bash
-docker run -it --name c1 ubuntu24-systemd:1.0 -p 127.0.0.1:80:8080  /bin/bash
+docker run -it --name agent_user_001 ubuntu24-systemd:1.0 -p 127.0.0.1:80:8080  /bin/bash
 ```
 -i:保持容器运行
 -t:为容器重新分配一个伪输入终端，与-i一起使用
 -d 以守护（后台）模式运行容器
 -p: 指定端口映射，格式为：主机(宿主)端口:容器端口
+
+```bash
+docker run -it \
+  --name agent_user_001 \
+  -v /home/agent_user_001/.config/opencode:/root/.config/opencode \
+  -e OPENCODE_SERVER_PASSWORD=a123 \
+  -e OPENCODE_SERVER_USERNAME
+  ubuntu24-systemd:1.0
+```
+
+-v:用户于设置文件挂载，宿主机目录:容器目录 ，挂载成功后，容器中被挂到的目录下的文件和目录将被隐藏，看到的都是宿主机的目录,可以有多个-v,注意宿主机的目录要存在
+-e:用于设置容器中的环境变量
+
+查看容器的挂载情况
+```bash
+docker inspect agent-user-001 --format '{{json .Mounts}}'
+#  agent-user-001 是容器名称
+```
+查看指定容器的所有环境变量
+```bash
+sudo docker exec agent-user-001 env
+# agent-user-001是容器的名称
+```
 
 
 ```bash 
@@ -213,8 +236,6 @@ sudo docker run -d \
 --restart：容器退出后自动重启，但手动停止后不会自动重启，直到再次手动启动
 --memory：内存
  --cpus：cpu数量 
-
-
 
 
 查看正在运行的容器
@@ -243,6 +264,13 @@ docker start 容器名称或id
 删除容器
 ```bash
 docker rm 容器名称或id
+```
+
+将容器转成转成镜像
+```bash
+sudo docker commit agent-user-001 agent-base:1.0
+# agent-user-001 容器名称
+# agent-base:1.0 镜像名称
 ```
 
 

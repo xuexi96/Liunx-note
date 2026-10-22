@@ -240,3 +240,86 @@ finally:
     client.close()
 
 ```
+
+```bash
+sudo docker run -d \
+  --runtime=sysbox-runc \
+  --name agent-user-001 \
+  --hostname agent-user-001 \
+  --network agent-routed \
+  --restart unless-stopped \
+  --ip 172.26.0.2 \
+  -p 0.0.0.0::9080 \
+  -v /home/agent_user_001/.config/opencode:/root/.config/opencode \
+  -v /home/agent_user_001/.config/.szgran-cli:/root/.szgran-cli \
+  -e OPENCODE_SERVER_USERNAME=ffgy \
+  -e OPENCODE_SERVER_PASSWORD=a123 \
+  ubuntu24-systemd:1.0
+```
+
+
+```python
+import docker
+client = docker.DockerClient(
+    base_url="ssh://vm1@192.168.1.61",
+)
+
+# 获取 Docker 网络
+network = client.networks.get("agent-routed")
+
+# 配置固定 IP
+endpoint_config = client.api.create_endpoint_config(
+    ipv4_address="172.26.0.2"
+)
+
+networking_config = client.api.create_networking_config({
+    network.name: endpoint_config
+})
+
+# 创建并启动容器
+container = client.containers.run(
+    image="ubuntu24-systemd:1.0",
+    name="agent-user-001",
+    hostname="agent-user-001",
+    runtime="sysbox-runc",
+    network=network.name,
+    networking_config=networking_config,
+    restart_policy={"Name": "unless-stopped"},
+    ports={
+        "9080/tcp": ("0.0.0.0", None)
+    },
+    # 设置文件挂载
+    volumes={
+        # 注意宿主机的/home/agent_user_001/.config/opencode目录必须存在
+        "/home/agent_user_001/.config/opencode": {
+            "bind": "/root/.config/opencode",
+            "mode": "rw",
+        },
+        # 注意宿主机的/home/agnet_user_001/.config/.szgran-cli目录必须存在
+        "/home/agent_user_001/.config/.szgran-cli": {
+            "bind": "/root/.szgran-cli",
+            "mode": "rw",
+        },
+    },
+    # 设置环境变量
+    environment={
+        "OPENCODE_SERVER_USERNAME": "ffgy",
+        "OPENCODE_SERVER_PASSWORD": "a123",
+    },
+    detach=True,
+)
+
+# 刷新容器信息并显示结果
+container.reload()
+
+print("容器名称：", container.name)
+print("容器 ID：", container.id)
+print("容器状态：", container.status)
+print(
+    "容器 IP：",
+    container.attrs["NetworkSettings"]["Networks"][network.name]["IPAddress"]
+)
+print("端口映射：", container.attrs["NetworkSettings"]["Ports"])
+
+
+```

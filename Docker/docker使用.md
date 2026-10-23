@@ -124,8 +124,87 @@ STOPSIGNAL SIGRTMIN+3
 # 容器启动时运行 systemd（PID 1）
 CMD ["/sbin/init"]
 
-
 ```
+#### Dockerfile 可以设置内容
+
+常用参数设置
+| 指令 | 作用 | 示例 |
+|---|---|---|
+| `FROM` | 指定基础镜像 | `FROM ubuntu:24.04` |
+| `CMD` | 设置容器默认启动命令 | `CMD ["python3", "app.py"]` |
+| `ENTRYPOINT` | 设置容器的主要执行程序 | `ENTRYPOINT ["python3"]` |
+| `RUN` | 构建镜像时执行命令 | `RUN apt-get install -y curl` |
+| `COPY` | 复制文件到镜像,将宿主机的opencode.json文件复制到容器的/root/.config/opencode/目录，容器的/root/.config/opencode/不存在时，容器自动创建，opencode.json是路径是相对于运行docker build所在目录 | `COPY opencode.json /root/.config/opencode/` |
+| `ADD` | 复制文件，也支持自动解压本地归档等功能 | `ADD app.tar.gz /app/` |
+| `WORKDIR` | 设置工作目录，Docker 镜像内部的当前工作目录。后续的 RUN、CMD、ENTRYPOINT 等指令会以这个目录作为默认工作目录 | `WORKDIR /app` |
+| `ENV` | 设置环境变量，默认在容器运行时保留 | `ENV TZ=Asia/Shanghai` |
+| `USER` | 指定后续构建步骤及默认进程使用的用户 | `USER appuser` |
+| `STOPSIGNAL` | 设置停止容器时发送的信号 | `STOPSIGNAL SIGTERM` |
+
+##### CMD 和 ENTRYPOINT 单独使用
+只使用 CMD
+```Dockerfile
+FROM ubuntu:24.04
+
+CMD ["python3", "app.py"]
+```
+默认启动
+```bash
+docker run my-image
+
+#  运行时，实际执行 python3 app.py
+```
+启动时指定其他参数
+```bash
+docker run my-image bash
+# 运行时，实际执行 bash
+```
+只使用 ENTRYPOINT
+```Dockerfile
+FROM ubuntu:24.04
+ENTRYPOINT ["python3"]
+```
+默认启动
+```bash
+docker run my-image
+# 运行时，实际执行 python3
+```
+如果启动时指定参数
+```bash
+docker run my-image --version
+# 运行时，实际执行 python3  --version
+```
+CMD 和 ENTRYPOINT 结合使用
+```Dockerfile
+FROM ubuntu:24.04
+
+ENTRYPOINT ["python3"]
+CMD ["app.py"]
+```
+默认启动
+```bash
+docker run my-image
+# ，实际执行 python3  app.py
+```
+如果启动时指定其他参数
+```bash
+docker run my-image test.py
+# 实际执行  python3 test.py
+```
+
+其他参数
+| 指令 | 作用 | 示例 |
+|---|---|---|
+| `EXPOSE` | 声明应用使用的端口 | `EXPOSE 9080` |
+| `VOLUME` | 声明容器中的数据卷目录 | `VOLUME ["/data"]` |
+| `LABEL` | 为镜像添加元数据 | `LABEL version="1.0"` |
+| `HEALTHCHECK` | 定义容器健康检查方式 | `HEALTHCHECK CMD curl -f http://localhost:9080/` |
+| `SHELL` | 修改 `RUN` 等指令使用的默认 Shell | `SHELL ["/bin/bash", "-c"]` |
+| `ONBUILD` | 定义下游镜像构建时自动执行的指令 | `ONBUILD COPY . /app` |
+| `ARG` | 定义构建镜像时使用的参数 | `ARG APP_VERSION=1.0` |
+
+
+
 
 构建 Docker 镜像，在 Dockerfile 所在目录执行
 ```bash
@@ -205,10 +284,16 @@ docker run -it \
 -v:用户于设置文件挂载，宿主机目录:容器目录 ，挂载成功后，容器中被挂到的目录下的文件和目录将被隐藏，看到的都是宿主机的目录,可以有多个-v,注意宿主机的目录要存在
 -e:用于设置容器中的环境变量
 
-查看容器的挂载情况
+查看容器的详细信息
+```bash
+docker inspect agent-user-001
+# 容器名称
+```
+
+查看容器的挂载情况，
 ```bash
 docker inspect agent-user-001 --format '{{json .Mounts}}'
-#  agent-user-001 是容器名称
+#  agent-user-001 是容器名称，通过 --format '{{json .Mounts}}'获取项信息
 ```
 查看指定容器的所有环境变量
 ```bash

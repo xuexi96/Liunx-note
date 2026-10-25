@@ -80,10 +80,10 @@ get请求
 ```python
 
 import asyncio
-import os
-
+from datetime import timedelta
 from opensandbox import Sandbox
 from opensandbox.config import ConnectionConfig
+from opensandbox.models.execd import RunCommandOpts
 
 
 async def main():
@@ -94,26 +94,155 @@ async def main():
     )
 
     sandbox = await Sandbox.connect(
-        sandbox_id="807e99e0-ec03-440d-b1fb-a99548c7500d", # 连接沙箱id
-        connection_config=config,
+        "3c780db6-49db-4692-92b1-543afca93a95",
+        config,
     )
 
     try:
-        # 运行命令
         result = await sandbox.commands.run(
-            "whoami && hostname && pwd && ls -la"
+            "timeout --signal=TERM --kill-after=1s 9s ping www.baidu.com",
+            opts=RunCommandOpts(
+                timeout=timedelta(seconds=12)
+            ),
         )
-        # 获取标准输出
+
+        # 优先读取退出码
+        exit_code = result.exit_code
+
+        # 兼容退出码只保存在错误对象中的情况
+        if exit_code is None and result.error:
+            exit_code = result.error.exit_code
+
+        print("退出码：", exit_code)
+
+        if result.error:
+            print("错误类型：", result.error.name)
+            print("错误信息：", result.error.value)
+
+        if exit_code == 124:
+            print("命令执行超时")
+        elif exit_code == 0:
+            print("命令正常结束")
+        else:
+            print("命令异常退出或退出状态未知")
+
+        print("===== 标准输出 =====")
         for item in result.logs.stdout:
             print(item.text)
+
+        print("===== 错误输出 =====")
+        for item in result.logs.stderr:
+            print(item.text)
+
     finally:
-        # 关闭沙箱
         await sandbox.close()
 
 
-asyncio.run(main())
+if __name__ == "__main__":
+    asyncio.run(main())
 
 ```
+
+沙箱中的文件的读写
+```python
+import asyncio
+from opensandbox import Sandbox
+from opensandbox.config import ConnectionConfig
+from opensandbox.models import WriteEntry
+
+async def main():
+    config = ConnectionConfig(
+        domain="192.168.2.204:8080",
+        api_key="12345678",
+        use_server_proxy=True,
+    )
+
+    sandbox = await Sandbox.connect(
+        "3c780db6-49db-4692-92b1-543afca93a95",
+        config,
+    )
+
+    try:
+        # 写入文件
+        await sandbox.files.write_files([
+            WriteEntry(
+                path="/workspace/hello.py",
+                data='print("Hello OpenSandbox!")',
+                mode=644,
+            )
+        ])
+        # 读取文件
+        read = await sandbox.files.read_file("/workspace/hello.py")
+        print(read)
+
+    finally:
+        await sandbox.close()
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+下载和上传文件到沙箱环境中
+```python
+import asyncio
+from opensandbox import Sandbox
+from opensandbox.config import ConnectionConfig
+from opensandbox.models import WriteEntry
+
+from pathlib import Path
+
+async def main():
+    config = ConnectionConfig(
+        domain="192.168.2.204:8080",
+        api_key="12345678",
+        use_server_proxy=True,
+    )
+
+    sandbox = await Sandbox.connect(
+        "25c2893d-bf8f-43e0-8520-1b24e5320e63",
+        config,
+    )
+
+    local_path = Path(
+        r"E:\pythonproject\docker-python\test.py"
+    )
+    file_data = local_path.read_bytes()
+    await sandbox.files.write_files([
+        WriteEntry(
+            path="/test.py",
+            data=file_data,
+            mode=644,
+        )
+    ])
+    print("上传成功")
+    
+    
+    content = await sandbox.files.read_file(path="/test.py")
+    local_path2 = Path(
+        r"E:\pythonproject\docker-python\test2.py"
+    )
+    local_path2.parent.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    if isinstance(content, str):
+        local_path2.write_text(
+            content,
+            encoding="utf-8",
+        )
+    else:
+        local_path2.write_bytes(content)
+
+    print("下载完成：", local_path)
+
+
+
+
+asyncio.run(main())
+```
+
 
 
 

@@ -54,6 +54,12 @@ docker images
 docker images -q
 ```
 
+查看镜像自身保存的默认配置
+```bash
+docker image inspect 镜像名
+
+```
+
 搜索镜像
 ```bash
 docker search 镜像名
@@ -138,8 +144,38 @@ CMD ["/sbin/init"]
 | `ADD` | 复制文件，也支持自动解压本地归档等功能 | `ADD app.tar.gz /app/` |
 | `WORKDIR` | 设置工作目录，Docker 镜像内部的当前工作目录。后续的 RUN、CMD、ENTRYPOINT 等指令会以这个目录作为默认工作目录 | `WORKDIR /app` |
 | `ENV` | 设置环境变量，默认在容器运行时保留 | `ENV TZ=Asia/Shanghai` |
+| `EXPOSE` | 声明应用使用的端口 | `EXPOSE 9080` |
 | `USER` | 指定后续构建步骤及默认进程使用的用户 | `USER appuser` |
 | `STOPSIGNAL` | 设置停止容器时发送的信号 | `STOPSIGNAL SIGTERM` |
+
+
+##### RUN
+RUN 就是在构建镜像时，执行一条命令,
+每一条 RUN 通常会形成一个镜像构建层，后面的命令可以使用前面留下来的文件和软件
+Dockerfile 中，每一条 RUN 默认都会启动一个新的 Shell 进程，因此不是同一个 Shell 上下文
+```Dockerfile
+FROM ubuntu:24.04
+
+RUN export NAME=Tom # 设置NAME变量
+RUN echo "$NAME"  # 获取不到NAME变量
+
+RUN cd /app  # 切换到/app目录
+RUN pwd   # 不是app目录
+
+```
+可以通过
+```bash 
+RUN bash -c 'export NAME=Tom && cd /app && echo "$NAME" && pwd' 
+# 或
+RUN export NAME=Tom && \
+    cd /app && \
+    echo "$NAME" && \
+    pwd
+```
+在同一个Shell环境运行多个命令
+
+
+
 
 ##### CMD 和 ENTRYPOINT 单独使用
 只使用 CMD
@@ -204,6 +240,35 @@ docker run my-image test.py
 | `ARG` | 定义构建镜像时使用的参数 | `ARG APP_VERSION=1.0` |
 
 
+简单的Dockerfile的模板
+```Dockerfile
+FROM ubuntu:24.04
+
+# 设置工作目录，启动 shell 默认所在的目录
+WORKDIR /app
+
+# 设置时区
+ENV TZ=Asia/Shanghai
+
+# 更新软件源
+RUN apt update 
+
+# 安装
+# ca-certificates # 安装证书
+
+RUN DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        ca-certificates \ 
+        curl \
+        git 
+
+# 删除 APT 下载的软件包索引缓存        
+RUN rm -rf /var/lib/apt/lists/*
+
+
+ENTRYPOINT []
+CMD []
+        
+```
 
 
 构建 Docker 镜像，在 Dockerfile 所在目录执行
@@ -262,6 +327,10 @@ sudo docker inspect \
 
 
 ### 容器相关命令
+通用格式
+```bash
+docker run [容器配置参数] 镜像名 [启动命令或参数]
+```
 
 创建容器并运行容器
 ```bash
@@ -280,6 +349,8 @@ docker run -it \
   -e OPENCODE_SERVER_USERNAME
   ubuntu24-systemd:1.0
 ```
+
+
 
 -v:用户于设置文件挂载，宿主机目录:容器目录 ，挂载成功后，容器中被挂到的目录下的文件和目录将被隐藏，看到的都是宿主机的目录,可以有多个-v,注意宿主机的目录要存在
 -e:用于设置容器中的环境变量

@@ -240,7 +240,7 @@ docker run my-image test.py
 | `ARG` | 定义构建镜像时使用的参数 | `ARG APP_VERSION=1.0` |
 
 
-简单的Dockerfile的模板
+简单的Dockerfile的模板(错误示例)
 ```Dockerfile
 FROM ubuntu:24.04
 
@@ -264,10 +264,32 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
 # 删除 APT 下载的软件包索引缓存        
 RUN rm -rf /var/lib/apt/lists/*
 
-
-ENTRYPOINT []
-CMD []
+ENTRYPOINT ["curl"]
+CMD ["http://192.168.2.204:5000/v2/ubuntu/tags/list"]
         
+```
+上面示例是错误,因为每运行RUN就是一层镜像，Dockerfile 中每条 RUN 通常都会产生一个新的镜像层，因此安装软件和清理 APT 缓存最好放在同一个 RUN 中
+```Dockerfile
+FROM ubuntu:24.04
+
+# 设置工作目录
+WORKDIR /app
+
+# 设置时区
+ENV TZ=Asia/Shanghai
+
+# 更新软件源、安装软件、清理缓存
+RUN apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        ca-certificates \
+        curl \
+        git \
+    && rm -rf /var/lib/apt/lists/*
+
+# 容器启动命令（按实际需要填写）
+ENTRYPOINT ["curl"]
+CMD ["http://192.168.2.204:5000/v2/ubuntu/tags/list"]
+
 ```
 
 
@@ -323,6 +345,67 @@ sudo docker inspect \
 # agent-user-001 是容器名称
 ```
 
+#### docker容器的网络
+##### bridge网络
+容器使用独立 IP，通过网桥通信
+bridge网络的网关模式
+| 网关模式 | NAT | 特点 |
+|---|---|---|
+| `nat` | 有 | 默认模式，端口映射 |
+| `routed` | 无 | 直接通过路由访问容器 IP |
+| `nat-unprotected` | 有 | 不对未发布端口实施常规端口过滤 |
+| `isolated` | 无 | 与 `internal` 网络配合，实现更严格的隔离 |
+
+###### nat 网关
+默认 bridge 下，宿主机直接访问容器 IP 不需要 -p；局域网其他设备默认通过宿主机 IP + -p 映射的端口访问
+
+###### routed
+创建
+```bash
+docker network create \
+    --driver bridge \
+    --subnet 172.26.0.0/24 \
+    -o com.docker.network.bridge.gateway_mode_ipv4=routed \
+    agent-routed
+```
+routed 模式下，Docker 仍然对发布端口实施过滤。对于未发布端口，并不是一定能直接从其他主机访问,可以通过-p 0.0.0.0::80发表端口，或-p 80
+
+
+
+##### host容器共享宿主机网络
+host 网络模式时，容器没有独立的容器 IP，而是直接共享宿主机的网络命名空间
+```bash
+docker run -d \
+    --name web \
+    --network host \
+    python:3.12 \
+    python -m http.server 9080 --bind 0.0.0.0
+```
+
+##### container
+container 网络模式表示：一个容器直接共享另一个容器的网络命名空间（Network Namespace）
+假设有两个容器：
+- 容器 A：container-a (172.26.0.2)
+- 容器 B：container-b
+
+容器A
+```bash
+docker run -d \
+    --name container-a \
+    python:3.12 \
+    python -m http.server 8080 --bind 0.0.0.0
+
+```
+ 
+容器 B 使用容器 A 的网络
+```bash
+docker run -d \
+    --name container-b \
+    --network container:container-a \
+    nginx
+```
+使用 --network container:container-a 的容器不能单独使用 -p、--publish 等网络配置。需要在容器 A 上设置相应的端口发布
+
 
 
 
@@ -352,7 +435,7 @@ docker run -it \
 
 
 
--v:用户于设置文件挂载，宿主机目录:容器目录 ，挂载成功后，容器中被挂到的目录下的文件和目录将被隐藏，看到的都是宿主机的目录,可以有多个-v,注意宿主机的目录要存在
+-v:用户于设置文件挂载，宿主机路径:容器内路径 ，挂载成功后，容器中被挂到的目录下的文件和目录将被隐藏，看到的都是宿主机的目录,指定到文件表示只挂载这个文件，宿主机文件所在的目录下的文件，容器是看不到的，可以有多个-v,注意宿主机的目录或文件要存在,-v 宿主机路径:容器内路径:挂载模式,ro:只读，rw读写(默认)
 -e:用于设置容器中的环境变量
 
 查看容器的详细信息

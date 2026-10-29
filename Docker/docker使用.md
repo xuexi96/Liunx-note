@@ -505,13 +505,37 @@ docker start 容器名称或id
 docker rm 容器名称或id
 ```
 
-将容器转成转成镜像
+# 将容器转成转成镜像
 ```bash
 sudo docker commit agent-user-001 agent-base:1.0
 # agent-user-001 容器名称
 # agent-base:1.0 镜像名称
 ```
-
+docker commit 主要保存文件系统变化和镜像级配置，不保存容器的运行环境配置
+docker commit 的 --change 参数用于在将容器提交为镜像时，修改新镜像的配置
+```bash
+docker commit --change 'Dockerfile指令' 容器名 新镜像名
+```
+示例
+```bash
+sudo docker commit \
+  --change 'ENV NODE_ENV=production' \
+  --change 'WORKDIR /app' \
+  --change 'CMD ["bash"]' \
+  agent-user-001 agent-base:1.0
+```
+--change 支持哪些指令
+|指令|作用|示例|
+|---|---|---|
+| CMD	| 设置默认启动命令 |	CMD ["bash"] |
+| ENTRYPOINT	| 设置启动入口	| ENTRYPOINT ["opencode"] |
+| ENV	| 设置环境变量	| ENV NODE_ENV=production |
+| WORKDIR	| 设置默认工作目录	| WORKDIR /app|
+| USER	| 设置默认运行用户	| USER root |
+| EXPOSE	| 声明容器端口	| EXPOSE 9080 |
+| VOLUME	| 声明数据卷路径	| VOLUME /data |
+| LABEL	| 设置镜像元数据	| LABEL version=1.0 |
+| ONBUILD	| 设置子镜像构建触发器	| ONBUILD RUN echo hello |
 
 
 # 让局域网内主机可以访问到宿主机里面的Docker容器（宿主机所在的网络，网关可以设置）

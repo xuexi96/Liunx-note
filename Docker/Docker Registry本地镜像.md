@@ -52,10 +52,34 @@ docker push 192.168.2.204:5000/agent-base:1.0
 
 查看所以镜像
 ```
-http://192.168.2.204:5000/v2/_catalog
+curl http://192.168.2.204:5000/v2/_catalog
 ```
 查看指定镜像的所有版本
 ```
 curl http://192.168.2.204:5000/v2/ubuntu/tags/list
 # ubuntu是镜像名，需要看其他镜像，修改这个
+```
+
+删除镜像
+1.获取镜像 Digest
+```bash
+curl -sSI \
+  -H 'Accept: application/vnd.oci.image.manifest.v1+json, application/vnd.oci.image.index.v1+json, application/vnd.docker.distribution.manifest.v2+json, application/vnd.docker.distribution.manifest.list.v2+json' \
+  http://192.168.2.204:5000/v2/ubuntu/manifests/24.04
+
+```
+```text
+Content-Length: 424
+Content-Type: application/vnd.oci.image.manifest.v1+json
+Docker-Content-Digest: sha256:a2d43bffc46670d7108bb3c0468c67c5557c4c92e83e1e34cbff1322ad1b94dc
+Docker-Distribution-Api-Version: registry/2.0
+Etag: "sha256:a2d43bffc46670d7108bb3c0468c67c5557c4c92e83e1e34cbff1322ad1b94dc"
+Date: Sun, 25 Oct 2026 11:34:11 GMT
+
+```
+找到Docker-Content-Digest
+删除镜像
+```
+curl -i -X DELETE \
+  "http://192.168.2.204:5000/v2/ubuntu/manifests/sha256:a2d43bffc46670d7108bb3c0468c67c5557c4c92e83e1e34cbff1322ad1b94dc"
 ```

@@ -139,14 +139,14 @@ services:
         max-file: "3"                # --log-opt max-file=3
 
     # --------------------------------------
-    # 第 3 层：健康检查
+    # 第 3 层：健康检查,定期检测容器内的服务是否正常工作
     # --------------------------------------
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080"]
-      interval: 30s                  # --health-interval 30s
-      timeout: 10s                   # --health-timeout 10s
-      retries: 3                     # --health-retries 3
-      start_period: 10s              # --health-start-period 10s
+      test: ["CMD", "curl", "-f", "http://localhost:8080"]  # 指定执行什么命令来检查服务,通过命令的退出码,0(执行成功	healthy),1(执行失败	检查失败),2(保留退出码	不建议使用),CMD-SHELL:通过 Shell 执行命令,CMD:直接执行程序
+      interval: 30s                  # --health-interval 30s # 每隔 30 秒进行一次健康检查
+      timeout: 10s                   # --health-timeout 10s # 单次检查最多执行 5 秒
+      retries: 3                     # --health-retries 3 # 连续失败 3 次后标记为 unhealthy
+      start_period: 10s              # --health-start-period 10s # 启动宽限期，允许服务初始化
 
     # --------------------------------------
     # 第 3 层：依赖服务

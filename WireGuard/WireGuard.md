@@ -22,6 +22,17 @@ sudo sh -c 'umask 077; wg genkey > /etc/wireguard/server.key'
 ```bash
 sudo sh -c 'wg pubkey < /etc/wireguard/server.key > /etc/wireguard/server.pub'
 ```
+创建密钥目录
+```bash
+sudo mkdir -p /etc/wireguard/clients
+sudo chmod 700 /etc/wireguard/clients
+cd /etc/wireguard/clients
+```
+生成其他的客户端的公钥和私钥
+```bash
+sudo bash -c 'umask 077; wg genkey | tee windows_a.key | wg pubkey > windows_a.pub'
+```
+
 
 配置 WireGuard 服务端
 sudo vim /etc/wireguard/wg0.conf

@@ -298,6 +298,10 @@ CMD ["http://192.168.2.204:5000/v2/ubuntu/tags/list"]
 sudo docker build -t ubuntu24-systemd:1.0 .
 ```
 
+查看镜像的信息
+```bash
+sudo docker inspect ubuntu24-systemd:1.0
+```
 
 
 ### 网络管理命令

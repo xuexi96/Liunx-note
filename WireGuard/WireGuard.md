@@ -27,18 +27,17 @@ sudo sh -c 'wg pubkey < /etc/wireguard/server.key > /etc/wireguard/server.pub'
 sudo vim /etc/wireguard/wg0.conf
 
 
-公网上面的Linux
+公网上面的Linux的wg0.conf
 ```conf
 [Interface]
-# 公网服务器的 VPN IP
-Address = 10.10.0.1/32
-ListenPort = 51820
+Address = 10.10.0.1/32 # 指定分配的IP地址
+ListenPort = 51820 # wireguard端口
 PrivateKey = <服务器私钥>
 
 # Windows 客户端
 [Peer]
 PublicKey = <Windows公钥>
-AllowedIPs = 10.10.2.1/32
+AllowedIPs = 10.10.2.1/32 # 设置
 
 # Linux 客户端及其后面的 Docker 网段
 [Peer]

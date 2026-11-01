@@ -56,10 +56,37 @@ PublicKey = <Linux公钥>
 AllowedIPs = 10.10.3.1/32, 172.26.0.0/24
 
 ```
-打开防火墙
+开启转发
+```bash
+sudo vim /etc/sysctl.d/99-wireguard-forward.conf
+```
+99-wireguard-forward.conf的内容
+```conf
+net.ipv4.ip_forward=1
+```
+```bash
+sudo sysctl --system
+```
+
+
+如果有ufw防火墙， 打开防火墙
 ```bash
 sudo ufw allow 51820/udp
 ```
+
+设置运行端口转发
+允许 WireGuard 客户端之间通过服务器互相通信，不限制 TCP、UDP、ICMP 等协议。
+```bash
+sudo ufw route allow in on wg0 out on wg0 \
+  from 10.10.0.0/16 to 10.10.0.0/16
+```
+sudo ufw	使用管理员权限管理 UFW 防火墙
+route allow	允许经过本机转发的数据包（FORWARD）
+in on wg0	数据包从 wg0 接口进入
+out on wg0	数据包从 wg0 接口发出
+from 10.10.0.0/16	源 IP 必须属于 10.10.0.0/16
+to 10.10.0.0/16	目标 IP 必须属于 10.10.0.0/16
+
 
 启动 WireGuard
 ```bash

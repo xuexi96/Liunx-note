@@ -70,7 +70,7 @@ services:
     # --------------------------------------
     # 第 3 层：网络配置
     # --------------------------------------
-    # network_mode: host             #  --network host
+    # network_mode: host             #  --network host # 设置这个之后，不用设置networks和第一次层的networks
     networks:                        # --network
       agent-routed:                  # --network agent-routed
         ipv4_address: 172.26.0.5     # --ip 172.26.0.5
@@ -368,4 +368,88 @@ networks:
   agent-routed: # 已经之前通过命令创建，直接
     external: true
 
+```
+进入octop目录运行
+```bash
+# 构建镜像
+docker compose build
+
+# 运行容器
+docker compose up -d
+
+# 或
+
+docker compose up -d --build
+```
+
+
+
+
+案例二，通过Dockerfile和docker compose方式创建容器
+目录结构
+docker-compose-project/
+└── frpc/
+    ├── Dockerfile
+    └── frpc.yaml
+
+Dockerfile文件的内容
+```Dockerfile
+FROM ubuntu:24.04
+
+WORKDIR /frp
+
+ENV TZ=Asia/Shanghai
+
+ARG FRP_VERSION=0.71.1
+
+RUN apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        ca-certificates \
+        wget \
+        tzdata && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN wget -O frp.tar.gz \
+        "https://github.com/fatedier/frp/releases/download/v${FRP_VERSION}/frp_${FRP_VERSION}_linux_amd64.tar.gz" && \
+    echo "1d9875210972a5d1a62b2dc4c48df45ab0af05d3ca1b5e494a014428259df803  frp.tar.gz" | sha256sum -c - && \
+    tar -xzf frp.tar.gz --strip-components=1 && \
+    rm -f frp.tar.gz frps frps.toml
+
+ENTRYPOINT ["/frp/frpc"]
+
+CMD ["-c", "/frp/frpc.toml"]
+```
+frpc.yaml的内容
+```yaml
+name: frpc
+services:
+  frpc-client:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    image: frpc:0.71.1
+    container_name: frpc-client
+    restart: unless-stopped
+
+    environment:
+      TZ: Asia/Shanghai
+
+    volumes:
+      - /usr/frp_0.71.1_linux_amd64/frpc.toml:/frp/frpc.toml:ro
+
+    network_mode: host
+```
+
+进入frpc目录运行
+```bash
+# 构建镜像
+docker compose build
+
+# 运行容器
+docker compose up -d
+
+# 或
+
+docker compose up -d --build
 ```

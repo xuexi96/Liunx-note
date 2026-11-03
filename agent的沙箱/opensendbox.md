@@ -11,12 +11,62 @@ uvx opensandbox-server init-config ~/.sandbox.toml --example docker
 ```bash
 opensandbox-server init-config ~/.sandbox.toml --example docker
 ```
+
+
+
 如果需要远程访问沙箱需要将.sandbox.toml 文件的`host:0.0.0.0`,配置`api_key:`
 ```toml
 [server]
 host = "0.0.0.0"
 api_key="12345678"
 
+```
+
+启动opensandbox-server
+```bash
+opensandbox-server
+```
+
+使用systemd去管理
+`vim /etc/systemd/system/opensandbox.service`
+```ini
+[Unit]
+Description=OpenSandbox Server
+After=network-online.target docker.service
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=simple
+
+User=ffgy
+Group=ffgy
+WorkingDirectory=/home/ffgy
+
+ExecStart=/usr/pyvenv/.venv/bin/opensandbox-server --config /home/ffgy/.sandbox.toml
+
+Restart=on-failure
+RestartSec=5
+
+Environment=PYTHONUNBUFFERED=1
+
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+```
+
+操作
+```bash
+# 重新加载 systemd 配置
+sudo systemctl daemon-reload
+
+# 开机自启，并立即启动
+sudo systemctl enable --now opensandbox.service
+
+# 查看运行状态
+sudo systemctl status opensandbox.service
 ```
 
 

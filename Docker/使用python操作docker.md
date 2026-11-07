@@ -177,6 +177,7 @@ client = docker.DockerClient(
 )
 
 try:
+    # 获取容器 
     container = client.containers.get("agent-user-001")
 
     # 创建目录
@@ -322,4 +323,76 @@ print(
 print("端口映射：", container.attrs["NetworkSettings"]["Ports"])
 
 
+```
+上传文件到容器
+```python
+import docker
+import io
+import tarfile
+from pathlib import Path
+
+client = docker.DockerClient(
+    base_url="ssh://vm1@192.168.2.204",
+    use_ssh_client=True,
+)
+
+container = client.containers.get("agent-user-001")
+
+local_file = Path("test.txt")
+
+# 创建 tar 归档
+tar_stream = io.BytesIO()
+
+with tarfile.open(fileobj=tar_stream, mode="w") as tar:
+    tar.add(str(local_file), arcname=local_file.name)
+
+tar_stream.seek(0)
+
+# 目标目录必须已经存在
+container.put_archive(
+    path="/root",
+    data=tar_stream.getvalue(),
+)
+
+print("上传成功")
+client.close()
+```
+
+从容器中下载文件
+```python
+import docker
+import io
+import tarfile
+import shutil
+
+client = docker.DockerClient(
+    base_url="ssh://vm1@192.168.2.204",
+    use_ssh_client=True,
+)
+
+container = client.containers.get("agent-user-001")
+
+# 获取容器中的文件（返回 tar 数据流）
+stream, stat = container.get_archive("/root/test.txt")
+
+tar_data = io.BytesIO()
+
+for chunk in stream:
+    tar_data.write(chunk)
+
+tar_data.seek(0)
+
+# 从 tar 中读取文件
+with tarfile.open(fileobj=tar_data, mode="r:") as tar:
+    member = tar.getmember("test.txt")
+    source = tar.extractfile(member)
+
+    if source is None:
+        raise ValueError("目标不是普通文件")
+
+    with source, open("download.txt", "wb") as target:
+        shutil.copyfileobj(source, target)
+
+print("下载成功")
+client.close()
 ```

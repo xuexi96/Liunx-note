@@ -288,6 +288,24 @@ docker start 容器名称或id
 docker rm 容器名称或id
 ```
 
+将容器中的文件复制的宿主机
+```bash
+docker cp mycontainer:/app/12.txt /home/vm1
+
+# mycontainer 容器名称或容器的id，
+# /app/12.txt 是容器中文件路径
+#  /home/vm1 宿主机的路径
+```
+
+将宿主机文件复制到容器中
+```bash
+docker cp /home/vm1/13.txt mycontainer:/app/
+# /home/vm1/13.txt 是宿主机的文件路径
+# mycontainer可以是容器名称或容器id
+# /app/ 是容器的路径
+
+```
+
 # 将容器转成转成镜像
 ```bash
 sudo docker commit agent-user-001 agent-base:1.0

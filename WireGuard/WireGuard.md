@@ -58,9 +58,9 @@ AllowedIPs = 10.10.3.1/32, 172.26.0.0/24
 ```
 开启转发
 ```bash
-sudo vim /etc/sysctl.d/99-wireguard-forward.conf
+sudo vim vim /etc/sysctl.conf
 ```
-99-wireguard-forward.conf的内容
+把文件里面的`net.ipv4.ip_forward`改成1，没有则添加
 ```conf
 net.ipv4.ip_forward=1
 ```
